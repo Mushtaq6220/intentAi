@@ -27,10 +27,17 @@ const getPreferredWalletId = (walletName, savedWalletId = null) => {
     return savedWalletId;
   }
 
-  // Lace is the primary wallet for this app. Avoid an extra discovery pass when
-  // the extension exposes the standard CIP-30 namespace.
-  if (lowerName === "lace" && typeof window !== "undefined" && window.cardano?.lace) {
-    return "lace";
+  // Direct injection checks for standard Cardano browser wallet namespaces (especially crucial on mobile Web3 browsers)
+  if (typeof window !== "undefined" && window.cardano) {
+    if (lowerName === "lace" && window.cardano.lace) return "lace";
+    if (lowerName === "yoroi" && window.cardano.yoroi) return "yoroi";
+    if (lowerName === "eternl" && window.cardano.eternl) return "eternl";
+    if (lowerName === "nami" && window.cardano.nami) return "nami";
+    
+    // Exact or partial key match in the window.cardano namespace
+    const keys = Object.keys(window.cardano);
+    const matchedKey = keys.find(k => k.toLowerCase() === lowerName);
+    if (matchedKey) return matchedKey;
   }
 
   const availableWallets = BrowserWallet.getInstalledWallets();

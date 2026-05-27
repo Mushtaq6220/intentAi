@@ -13,7 +13,23 @@ export const WalletModal = ({ isOpen, onClose }) => {
   React.useEffect(() => {
     if (typeof window !== "undefined") {
       import("@meshsdk/core").then(({ BrowserWallet }) => {
-        const wallets = BrowserWallet.getInstalledWallets();
+        const wallets = BrowserWallet.getInstalledWallets() || [];
+        
+        // Ensure that if window.cardano has yoroi/lace/eternl/nami injected but it wasn't listed, we manually discover it
+        if (window.cardano) {
+          const knownIds = ["lace", "eternl", "nami", "yoroi"];
+          knownIds.forEach(id => {
+            if (window.cardano[id] && !wallets.some(w => w.id === id || w.name.toLowerCase() === id)) {
+              wallets.push({
+                id: id,
+                name: id.charAt(0).toUpperCase() + id.slice(1),
+                icon: window.cardano[id].icon || "",
+                version: window.cardano[id].apiVersion || ""
+              });
+            }
+          });
+        }
+
         const decorated = wallets.map(w => {
           const lowerName = w.name.toLowerCase();
           if (lowerName.includes("lace")) {
