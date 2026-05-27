@@ -1,0 +1,36 @@
+{
+  "contacts": [
+    {
+      "id": "c-1779890394995",
+      "name": "Musharaf",
+      "address": "addr1q837fxx9c2vc802q60qecrmkdy8gmxa8pk98vj3ht96ugyedt5n3gn6wy5kvs5x5glsjm90hhjxxpzzk3pwsp09p6kzspg5s6a",
+      "isFavorite": false,
+      "avatarColor": "bg-pink-500/20 text-pink-400",
+      "createdAt": "2026-05-27T13:59:54.997Z"
+    },
+    {
+      "id": "c-1779723531950",
+      "name": "Mois",
+      "address": "addr_test1qp95jn4q0uzaggqzpr0f7h63s2aqfw5937pv3ln9h48k9dxh7puv87p5px5pnphl68qaa4ytv2ap3ewwj0ejeak960aqnlf77d",
+      "isFavorite": false,
+      "avatarColor": "bg-pink-500/20 text-pink-400",
+      "createdAt": "2026-05-25T15:38:51.951Z"
+    },
+    {
+      "id": "c-1779534463896",
+      "name": "Mom",
+      "address": "addr_test1qrj48jy4dufdzflr74y0m66mxus7gxfjw62478er0n9cch2s64kgy0stvg8cpzw03zg94rqstkneue2rc5wscv6egagsh4xsey",
+      "isFavorite": false,
+      "avatarColor": "bg-pink-500/20 text-pink-400",
+      "createdAt": "2026-05-23T11:07:43.897Z"
+    },
+    {
+      "id": "c-1779531802132",
+      "name": "Mushtaq",
+      "address": "addr_test1qrm0ec2pvksrq5mw2dx3l376ngr7tsw5p9jel5lhrex4khw9staynmd3jpeh0hvsw5g5478cwrq8uhafpxz5gfc0w3nsv0uka8",
+      "isFavorite": false,
+      "avatarColor": "bg-pink-500/20 text-pink-400",
+      "createdAt": "2026-05-23T10:23:22.132Z"
+    }
+  ]
+}
