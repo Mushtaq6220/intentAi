@@ -4,17 +4,17 @@ import React, { useState } from "react";
 import { usePathname } from "next/navigation";
 import {
   MessageSquare, History, Bot, TrendingUp, Users,
-  ChevronLeft, ChevronRight, Plus, Trash2, MessageCircle,
+  ChevronLeft, ChevronRight, Plus, Trash2, MessageCircle, Sparkles, Terminal
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useDashboard } from "@/context/DashboardContext";
 import { useNetwork } from "@/context/NetworkContext";
 
 const NAV_ITEMS = [
-  { path: "/chat",     label: "Chat Terminal",  icon: MessageSquare },
-  { path: "/stake",    label: "Staking Hub",    icon: TrendingUp },
-  { path: "/contacts", label: "Address Book",   icon: Users },
-  { path: "/history",  label: "Ledger History", icon: History },
+  { path: "/chat",     label: "Chat",               icon: MessageSquare },
+  { path: "/stake",    label: "Yield Validator",    icon: TrendingUp },
+  { path: "/contacts", label: "Address Book",       icon: Users },
+  { path: "/history",  label: "Transaction history", icon: History },
 ];
 
 const formatSessionDate = (iso) => {
@@ -54,52 +54,55 @@ export const Sidebar = ({ collapsed, onToggleCollapse, onNavigate, className = "
 
   return (
     <motion.aside
-      animate={{ width: collapsed ? 84 : 280 }}
-      transition={{ type: "spring", damping: 28, stiffness: 280 }}
-      className={`relative flex-col h-full shrink-0 border-r border-white/5 bg-black/45 backdrop-blur-2xl overflow-hidden z-20 ${className}`}
+      animate={{ width: collapsed ? 88 : 285 }}
+      transition={{ type: "spring", damping: 26, stiffness: 220 }}
+      className={`relative flex-col h-[calc(100vh-1.5rem)] my-2 ml-2 md:my-3 md:ml-3 rounded-2xl md:rounded-3xl border border-[var(--card-border)] bg-[var(--sidebar-bg)] backdrop-blur-2xl overflow-hidden z-20 shadow-[0_20px_50px_rgba(0,0,0,0.15)] transition-all duration-300 ${className}`}
     >
-      {/* Brand header */}
-      <div className="px-5 h-16 flex items-center gap-3.5 border-b border-white/5 shrink-0">
+      {/* Dynamic Ambient Mesh Glow Overlay */}
+      <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/5 rounded-full blur-[60px] pointer-events-none" />
+      <div className="absolute bottom-0 left-0 w-32 h-32 bg-purple-500/5 rounded-full blur-[60px] pointer-events-none" />
+
+      {/* Brand Header */}
+      <div className="px-5 h-16 flex items-center gap-3.5 border-b border-[var(--card-border)] shrink-0 relative z-10">
         <button
           onClick={() => onNavigate("/chat")}
-          className="flex items-center gap-3.5 group min-w-0"
+          className="flex items-center gap-3.5 group min-w-0 w-full text-left"
         >
-          <div className={`w-11 h-11 rounded-2xl bg-gradient-to-tr ${colors.brandGradient} flex items-center justify-center shadow-lg ${colors.accentGlow} group-hover:scale-105 transition-transform duration-300 shrink-0`}>
-            <Bot className="w-6 h-6 text-white" />
+          <div className="w-11 h-11 rounded-2xl overflow-hidden shrink-0 group-hover:scale-105 transition-transform duration-300 shadow-md">
+            <img src="/logo-avatar.png" alt="IntentAi Logo" className="w-full h-full object-cover" />
           </div>
           <motion.div
             animate={{ opacity: collapsed ? 0 : 1, width: collapsed ? 0 : "auto" }}
-            transition={{ duration: 0.2 }}
+            transition={{ duration: 0.18 }}
             className="overflow-hidden whitespace-nowrap text-left"
           >
-            <h1 className={`font-extrabold text-base bg-gradient-to-r ${colors.brandGradient} bg-clip-text text-transparent tracking-wide`}>
-              ADA Intent AI
+            <h1 className="font-black text-sm tracking-widest text-[var(--foreground)] flex items-center gap-1.5 uppercase leading-none">
+              IntentAi <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
             </h1>
-            <p className="text-[11px] text-gray-500 font-mono font-semibold tracking-wider">EXCHANGE v1.0</p>
           </motion.div>
         </button>
       </div>
 
-      {/* New Chat button */}
-      <div className="px-4 pt-4 pb-2 shrink-0">
+      {/* New Conversation Button */}
+      <div className="px-4 pt-4.5 pb-2.5 shrink-0 relative z-10">
         <button
           onClick={() => { handleNewChat(); onNavigate("/chat"); }}
-          title={collapsed ? "New Chat" : undefined}
-          className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl bg-gradient-to-r ${colors.cardGradient} border ${colors.accentBorder} ${colors.accentBorderHover} ${colors.textAccent} transition-all duration-200 font-semibold text-sm group hover:shadow-md ${colors.accentGlow} active:scale-[0.98] cursor-pointer ${collapsed ? "justify-center" : ""}`}
+          title={collapsed ? "New Terminal Session" : undefined}
+          className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl bg-white/5 border border-white/5 hover:border-cyan-500/30 ${colors.textAccent} transition-all duration-300 font-bold text-xs group hover:shadow-lg hover:shadow-cyan-500/5 active:scale-[0.98] cursor-pointer ${collapsed ? "justify-center" : ""}`}
         >
-          <Plus className="w-4.5 h-4.5 shrink-0 group-hover:rotate-90 transition-transform duration-200" />
+          <Plus className="w-4.5 h-4.5 shrink-0 group-hover:rotate-90 transition-transform duration-300" />
           <motion.span
             animate={{ opacity: collapsed ? 0 : 1, width: collapsed ? 0 : "auto" }}
             transition={{ duration: 0.18 }}
-            className="overflow-hidden whitespace-nowrap"
+            className="overflow-hidden whitespace-nowrap tracking-wider uppercase text-[10px]"
           >
             New Chat
           </motion.span>
         </button>
       </div>
 
-      {/* Nav items */}
-      <nav className="px-4 py-2 space-y-1 shrink-0">
+      {/* Main Navigation Nodes */}
+      <nav className="px-4 py-2 space-y-1.5 shrink-0 relative z-10">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.path && item.path !== "/chat";
@@ -110,19 +113,20 @@ export const Sidebar = ({ collapsed, onToggleCollapse, onNavigate, className = "
               key={item.path}
               onClick={() => onNavigate(item.path)}
               title={collapsed ? item.label : undefined}
-              className={`w-full flex items-center gap-4 px-4 py-3 rounded-2xl transition-all duration-250 text-sm font-semibold group relative ${
+              className={`w-full flex items-center gap-4 px-4 py-3 rounded-2xl transition-all duration-300 text-xs tracking-wider uppercase font-extrabold group relative ${
                 active
-                  ? `bg-gradient-to-r ${colors.cardGradient} border ${colors.borderCard} ${colors.textAccent} shadow-md ${colors.accentGlow}`
+                  ? `bg-white/5 border border-white/10 ${colors.textAccent} shadow-lg shadow-black/30`
                   : "text-gray-400 border border-transparent hover:text-white hover:bg-white/5"
               }`}
             >
               {active && (
                 <motion.span
-                  layoutId="activeBar"
+                  layoutId="activeBarIndicator"
                   className={`absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 rounded-r-full ${colors.pulseBg}`}
+                  transition={{ type: "spring", damping: 15, stiffness: 200 }}
                 />
               )}
-              <Icon className={`w-4.5 h-4.5 shrink-0 transition-colors ${active ? colors.textAccent : "text-gray-400 group-hover:text-white"}`} />
+              <Icon className={`w-4.5 h-4.5 shrink-0 transition-colors duration-300 ${active ? colors.textAccent : "text-gray-500 group-hover:text-white"}`} />
               <motion.span
                 animate={{ opacity: collapsed ? 0 : 1, width: collapsed ? 0 : "auto" }}
                 transition={{ duration: 0.18 }}
@@ -135,17 +139,20 @@ export const Sidebar = ({ collapsed, onToggleCollapse, onNavigate, className = "
         })}
       </nav>
 
-      {/* Chat History */}
+      {/* Chat Session Registry */}
       <AnimatePresence>
         {!collapsed && chatSessions.length > 0 && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="flex-1 min-h-0 flex flex-col px-4 pt-3 pb-2 overflow-hidden"
+            className="flex-1 min-h-0 flex flex-col px-4 pt-4 pb-2 overflow-hidden relative z-10"
           >
-            <p className="text-[10px] text-gray-600 font-bold uppercase tracking-widest mb-2 px-1">Recent Chats</p>
-            <div className="flex-1 overflow-y-auto space-y-0.5 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent pr-0.5">
+            <div className="flex items-center gap-2 mb-3.5 px-1">
+              <Terminal className="w-3.5 h-3.5 text-gray-600" />
+              <p className="text-[9px] text-gray-500 font-extrabold uppercase tracking-widest">Active Sessions</p>
+            </div>
+            <div className="flex-1 overflow-y-auto space-y-1 pr-1 scrollbar-thin">
               {chatSessions.map((session) => {
                 const isActiveSession = session.id === activeChatId && pathname === "/chat";
                 return (
@@ -154,30 +161,30 @@ export const Sidebar = ({ collapsed, onToggleCollapse, onNavigate, className = "
                     onMouseEnter={() => setHoveredSession(session.id)}
                     onMouseLeave={() => setHoveredSession(null)}
                     onClick={() => onSessionClick(session.id)}
-                    className={`group relative flex items-center gap-2.5 w-full px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-150 ${
+                    className={`group relative flex items-center gap-3 w-full px-3.5 py-3 rounded-2xl cursor-pointer transition-all duration-300 ${
                       isActiveSession
-                        ? `${colors.accentBg} border ${colors.accentBorder} text-white`
+                        ? "bg-white/5 border border-white/10 text-white shadow-md shadow-black/20"
                         : "hover:bg-white/5 text-gray-400 hover:text-gray-200 border border-transparent"
                     }`}
                   >
-                    <MessageCircle className={`w-3.5 h-3.5 shrink-0 ${isActiveSession ? colors.textAccent : "text-gray-600 group-hover:text-gray-400"}`} />
+                    <MessageCircle className={`w-3.5 h-3.5 shrink-0 transition-colors ${isActiveSession ? colors.textAccent : "text-gray-600 group-hover:text-gray-400"}`} />
                     <div className="flex-1 min-w-0">
-                      <p className="text-[12px] font-medium truncate leading-tight">
-                        {session.title || "New Chat"}
+                      <p className="text-[11px] font-bold truncate leading-snug">
+                        {session.title || "Interactive Session"}
                       </p>
-                      <p className="text-[10px] text-gray-600 mt-0.5">
+                      <p className="text-[9px] text-gray-600 font-medium font-mono mt-0.5">
                         {formatSessionDate(session.updatedAt)}
                       </p>
                     </div>
                     {(hoveredSession === session.id || confirmDeleteId === session.id) && (
                       <button
                         onClick={(e) => onDelete(e, session.id)}
-                        className={`shrink-0 p-1 rounded-lg transition-all ${
+                        className={`shrink-0 p-1.5 rounded-lg transition-all ${
                           confirmDeleteId === session.id
                             ? "bg-red-500/20 text-red-400"
                             : "hover:bg-white/10 text-gray-600 hover:text-gray-300"
                         }`}
-                        title={confirmDeleteId === session.id ? "Click again to delete" : "Delete chat"}
+                        title={confirmDeleteId === session.id ? "Click again to delete" : "Delete session"}
                       >
                         <Trash2 className="w-3 h-3" />
                       </button>
@@ -190,12 +197,12 @@ export const Sidebar = ({ collapsed, onToggleCollapse, onNavigate, className = "
         )}
       </AnimatePresence>
 
-      {/* Collapse toggle */}
-      <div className="px-4 py-5 border-t border-white/5 shrink-0">
+      {/* Terminal Collapse Trigger */}
+      <div className="px-4 py-5 border-t border-[var(--card-border)] shrink-0 relative z-10 bg-gradient-to-t from-[var(--background)] to-transparent">
         <button
           onClick={onToggleCollapse}
-          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          className="w-full flex items-center justify-center gap-2.5 py-3 rounded-2xl text-gray-400 hover:text-white hover:bg-white/5 border border-transparent hover:border-white/10 transition-all duration-200 text-sm font-semibold"
+          title={collapsed ? "Expand Command Center" : "Collapse Command Center"}
+          className="w-full flex items-center justify-center gap-2.5 py-3 rounded-2xl text-gray-500 hover:text-white hover:bg-white/5 border border-transparent hover:border-white/15 transition-all duration-300 text-xs font-bold uppercase tracking-wider"
         >
           {collapsed
             ? <ChevronRight className="w-5 h-5" />
@@ -206,7 +213,7 @@ export const Sidebar = ({ collapsed, onToggleCollapse, onNavigate, className = "
                   animate={{ opacity: 1, width: "auto" }}
                   className="overflow-hidden whitespace-nowrap"
                 >
-                  Collapse Terminal
+                  Collapse Command
                 </motion.span>
               </>
             )
