@@ -687,8 +687,8 @@ export const ChatSection = ({
       <div className="flex-1 overflow-y-auto p-5 md:p-7 pb-12 space-y-7 scrollbar-thin">
         {messages.length === 0 ? (
           /* Jarvis Cockpit Empty State */
-          <div className="h-full flex flex-col items-center justify-center text-center max-w-xl mx-auto space-y-8 select-none py-12">
-            <div className="w-24 h-24 rounded-3xl overflow-hidden shadow-2xl animate-float-slow shrink-0 border border-[var(--card-border)]">
+          <div className="min-h-full flex flex-col items-center justify-start md:justify-center text-center max-w-xl mx-auto space-y-5 md:space-y-8 select-none py-4 md:py-12">
+            <div className="w-16 h-16 md:w-24 md:h-24 rounded-2xl md:rounded-3xl overflow-hidden shadow-2xl animate-float-slow shrink-0 border border-[var(--card-border)] bg-transparent">
               <img src="/logo-avatar.png" alt="IntentAi Logo" className="w-full h-full object-cover" />
             </div>
             

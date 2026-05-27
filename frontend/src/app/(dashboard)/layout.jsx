@@ -103,13 +103,17 @@ export default function DashboardLayout({ children }) {
         {/* ── Cockpit Top Header ───────────────────────────────────────── */}
         <header className="h-16 shrink-0 flex items-center justify-between px-6 border-b border-white/5 bg-transparent z-20 select-none">
           {/* Left Area — mobile drawer trigger + network state badge */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <button
               onClick={() => setIsSidebarOpen(true)}
               className="p-2.5 rounded-xl bg-white/5 border border-white/5 text-gray-400 hover:text-white md:hidden transition-all cursor-pointer shadow-md"
             >
               <Menu className="w-5 h-5" />
             </button>
+            {/* Small Mobile Logo */}
+            <div className="md:hidden flex items-center shrink-0 w-8 h-8 rounded-xl overflow-hidden shadow-md border border-[var(--card-border)] bg-[var(--card-bg)]">
+              <img src="/logo-avatar.png" alt="IntentAi Logo" className="w-full h-full object-cover" />
+            </div>
             {isConnected ? (
               <div className="flex items-center gap-2.5">
                 <span className={`hidden md:flex items-center gap-2 text-[9px] font-black uppercase tracking-widest bg-[var(--glass-bg)] border border-[var(--glass-border)] px-3 py-1.5 rounded-xl`}>

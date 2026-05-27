@@ -66,10 +66,10 @@ export const NotificationCenter = ({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={{ type: "spring", damping: 20, stiffness: 300 }}
-            className="absolute right-0 mt-3 w-80 rounded-2xl solid-dropdown shadow-2xl z-[100] overflow-hidden"
+            className="absolute left-1/2 -translate-x-[42%] sm:left-auto sm:right-0 sm:translate-x-0 mt-3 w-[290px] sm:w-80 rounded-2xl solid-dropdown shadow-2xl z-[100] overflow-hidden"
           >
             {/* Header */}
-            <div className="p-4 border-b border-white/5 flex items-center justify-between bg-black/40">
+            <div className="p-4 border-b border-white/5 flex items-center justify-between bg-black/20">
               <div className="flex items-center gap-2">
                 <Bell className="w-4 h-4 text-cyan-400" />
                 <span className="font-bold text-xs text-white">Notifications</span>
@@ -139,7 +139,7 @@ export const NotificationCenter = ({
             </div>
 
             {/* Footer */}
-            <div className="p-3 border-t border-white/5 bg-black/40 text-center">
+            <div className="p-3 border-t border-white/5 bg-black/20 text-center">
               <span className="text-[9px] text-gray-500 uppercase tracking-wider font-mono">
                 Secured Intent Node Feed
               </span>
