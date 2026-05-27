@@ -221,18 +221,12 @@ export const LandingPage = ({
                 </button>
               ) : (
                 <>
-                  <button
-                    onClick={onOpenConnectModal}
-                    className="w-full px-7 py-4.5 rounded-2xl bg-gradient-to-r from-cyan-500 via-indigo-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500 text-white font-black text-sm transition-all duration-300 shadow-xl shadow-cyan-500/20 border border-cyan-400/20 active:scale-[0.98] cursor-pointer"
-                  >
-                    Connect Cardano Wallet
-                  </button>
+          
                   <button
                     onClick={onEnterDashboard}
                     className="w-full px-7 py-4.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-cyan-500/20 text-white font-bold text-sm transition-all duration-300 active:scale-[0.98] cursor-pointer shadow-md"
-                  >
-                    Explore Sandbox OS
-                  </button>
+                  >Launch App                 
+                   </button>
                 </>
               )}
             </motion.div>

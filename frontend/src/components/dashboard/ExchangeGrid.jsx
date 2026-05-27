@@ -368,7 +368,7 @@ export const ExchangeGrid = ({
           <form onSubmit={handleCheckFraud} className="flex gap-2">
             <input
               type="text"
-              placeholder="Enter address prefix or label to audit (e.g. 'Rahul' or type 'bad_addr' to test alert)..."
+              placeholder="Enter address prefix or label to audit (e.g. 'Brother' or type 'bad_addr' to test alert)..."
               value={fraudSearchAddress}
               onChange={(e) => setFraudSearchAddress(e.target.value)}
               className="flex-1 py-2 px-3 rounded-xl glass-input text-xs text-white"

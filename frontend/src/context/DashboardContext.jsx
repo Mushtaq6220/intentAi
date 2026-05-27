@@ -105,7 +105,7 @@ export const DashboardProvider = ({ children }) => {
   const [pastTransactions, setPastTransactions] = useState([]);
   const [smartRules, setSmartRules]       = useState([
     { id: "rule-1", name: "ADA Price Monitor Swap", condition: "ADA drops below 0.45 USD", action: "Swap 100 ADA for DJED", status: "active" },
-    { id: "rule-2", name: "Sponsor Monthly Support", condition: "1st day of month", action: "Send 20 ADA to Rahul", status: "paused" },
+    { id: "rule-2", name: "Sponsor Monthly Support", condition: "1st day of month", action: "Send 20 ADA to Brother", status: "paused" },
   ]);
 
   const getExplorerTxUrl = useCallback((hash) => `${explorerUrl}/transaction/${hash}`, [explorerUrl]);
@@ -398,7 +398,7 @@ export const DashboardProvider = ({ children }) => {
           if (securityLines.length) msg += `\n\n⚠️ **Security Advisories:**\n- ${securityLines.join("\n- ")}`;
           return msg;
         }
-        let msg = `I understood your instruction but wasn't able to match it to a blockchain action. Try phrasing it like:\n• "Send 10 ADA to Rahul"\n• "Swap 50 ADA to USDM"\n• "Pay 15 ADA monthly to addr_test1..."`;
+        let msg = `I understood your instruction but wasn't able to match it to a blockchain action. Try phrasing it like:\n• "Send 10 ADA to Brother"\n• "Swap 50 ADA to USDM"\n• "Pay 15 ADA monthly to addr_test1..."`;
         if (securityLines.length) msg += `\n\n⚠️ **Safety Alerts:**\n- ${securityLines.join("\n- ")}`;
         return msg;
       };
@@ -510,10 +510,10 @@ export const DashboardProvider = ({ children }) => {
         let responseText = "I'm your ADA Intent AI assistant. Try asking me to send, swap, or stake ADA!";
         if (textLower.includes("hi") || textLower.includes("hello") || textLower.includes("hey")) responseText = "Hey 👋 How can I help you today?";
         else if (textLower.includes("how are you")) responseText = "I'm doing great — ready to help with your Cardano transactions. What would you like to do?";
-        else if (textLower.includes("what can you do") || textLower.includes("help")) responseText = "I can help you:\n• 💸 Send ADA to contacts or addresses\n• 🔄 Swap tokens (ADA → USDM, DJED, MIN, HOSKY, AGIX, WMT and more!)\n• 🏦 Stake ADA for passive rewards\n• 📋 View transaction history\n• ⚡ Set up recurring payments\n\nJust type a natural language command like \"Send 10 ADA to Rahul\" or \"Swap 50 ADA to HOSKY\" to get started!";
+        else if (textLower.includes("what can you do") || textLower.includes("help")) responseText = "I can help you:\n• 💸 Send ADA to contacts or addresses\n• 🔄 Swap tokens (ADA → USDM, DJED, MIN, HOSKY, AGIX, WMT and more!)\n• 🏦 Stake ADA for passive rewards\n• 📋 View transaction history\n• ⚡ Set up recurring payments\n\nJust type a natural language command like \"Send 10 ADA to Brother\" or \"Swap 50 ADA to HOSKY\" to get started!";
         else if (textLower.includes("thank")) responseText = "You're welcome! Let me know if you need anything else.";
         else if (textLower.includes("balance") || textLower.includes("wallet")) responseText = isConnected ? `Your ${connectedWallet || "Cardano"} wallet is connected and ready. Check the wallet button in the top right for your balance.` : "You don't have a wallet connected yet. Click \"Connect Wallet\" in the top right to get started!";
-        else responseText = "I'm here to help! You can ask me to send ADA, swap tokens, or stake. Type something like \"Send 10 ADA to Rahul\" or \"Swap 50 ADA to AGIX\" to see it in action.";
+        else responseText = "I'm here to help! You can ask me to send ADA, swap tokens, or stake. Type something like \"Send 10 ADA to Brother\" or \"Swap 50 ADA to AGIX\" to see it in action.";
         const aiMsg = { id: makeMsgId("ai"), sender: "ai", text: responseText, timestamp: new Date() };
         updateSessionMessages(currentSessionId, prev => [...prev, aiMsg]);
       } finally {

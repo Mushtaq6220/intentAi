@@ -240,7 +240,7 @@ export default function DashboardLayout({ children }) {
                 title="Connect Wallet"
               >
                 <Wallet className="w-4 h-4" />
-                <span className="hidden sm:inline">Mount Wallet</span>
+                <span className="hidden sm:inline">Connect Wallet</span>
               </button>
             )}
           </div>

@@ -120,7 +120,7 @@ export const ContactsPanel = ({
                 <label className="text-[10px] text-gray-400 font-semibold block">Username / Label</label>
                 <input
                   type="text"
-                  placeholder="e.g. Rahul"
+                  placeholder="e.g. Brother"
                   value={newContactName}
                   onChange={(e) => setNewContactName(e.target.value)}
                   className="w-full py-2.5 px-3.5 rounded-xl glass-input text-xs text-white"

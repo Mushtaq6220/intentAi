@@ -392,7 +392,7 @@ export const ChatSection = ({
   const messagesEndRef = useRef(null);
 
   const suggestions = [
-    { text: "Send 10 ADA to Rahul", label: "Direct Transfer", desc: "Compile Lovelace transfer" },
+    { text: "Send 10 ADA to Brother", label: "Direct Transfer", desc: "Compile Lovelace transfer" },
     { text: "Swap 50 ADA to USDM", label: "Stablecoin DEX Exchange", desc: "Build Minswap Datum order" },
     { text: "Convert 30 ADA to AGIX", label: "AI Token Swaps", desc: "Exchange with live aggregator" },
     { text: "Swap 20 ADA to HOSKY", label: "Cardano Meme Swaps", desc: "Low price impact dex pool" },
