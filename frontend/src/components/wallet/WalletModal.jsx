@@ -12,82 +12,98 @@ export const WalletModal = ({ isOpen, onClose }) => {
 
   React.useEffect(() => {
     if (typeof window !== "undefined") {
-      import("@meshsdk/core").then(({ BrowserWallet }) => {
-        const wallets = BrowserWallet.getInstalledWallets() || [];
-        
-        // Ensure that if window.cardano has yoroi/lace/eternl/nami injected but it wasn't listed, we manually discover it
-        if (window.cardano) {
-          const knownIds = ["lace", "eternl", "nami", "yoroi"];
-          knownIds.forEach(id => {
-            if (window.cardano[id] && !wallets.some(w => w.id === id || w.name.toLowerCase() === id)) {
-              wallets.push({
-                id: id,
-                name: id.charAt(0).toUpperCase() + id.slice(1),
-                icon: window.cardano[id].icon || "",
-                version: window.cardano[id].apiVersion || ""
-              });
-            }
-          });
-        }
+      const detectWallets = () => {
+        import("@meshsdk/core").then(({ BrowserWallet }) => {
+          const wallets = BrowserWallet.getInstalledWallets() || [];
+          
+          // Ensure that if window.cardano has yoroi/lace/eternl/nami injected but it wasn't listed, we manually discover it
+          if (window.cardano) {
+            const knownIds = ["lace", "eternl", "nami", "yoroi"];
+            knownIds.forEach(id => {
+              if (window.cardano[id] && !wallets.some(w => w.id === id || w.name.toLowerCase() === id)) {
+                wallets.push({
+                  id: id,
+                  name: id.charAt(0).toUpperCase() + id.slice(1),
+                  icon: window.cardano[id].icon || "",
+                  version: window.cardano[id].apiVersion || ""
+                });
+              }
+            });
+          }
 
-        const decorated = wallets.map(w => {
-          const lowerName = w.name.toLowerCase();
-          if (lowerName.includes("lace")) {
+          const decorated = wallets.map(w => {
+            const lowerName = w.name.toLowerCase();
+            if (lowerName.includes("lace")) {
+              return { 
+                ...w, 
+                desc: "Cardano Wallet by IOG", 
+                color: "from-amber-500/10 to-orange-500/5", 
+                borderColor: "hover:border-amber-500/30", 
+                glowColor: "group-hover:shadow-amber-500/10", 
+                logoText: "L", 
+                logoColor: "text-amber-400 bg-amber-500/15" 
+              };
+            }
+            if (lowerName.includes("eternl")) {
+              return { 
+                ...w, 
+                desc: "Power-User Cardano Core", 
+                color: "from-blue-500/10 to-indigo-500/5", 
+                borderColor: "hover:border-blue-500/30", 
+                glowColor: "group-hover:shadow-blue-500/10", 
+                logoText: "E", 
+                logoColor: "text-blue-400 bg-blue-500/15" 
+              };
+            }
+            if (lowerName.includes("nami")) {
+              return { 
+                ...w, 
+                desc: "Simple and elegant cardano interface", 
+                color: "from-emerald-500/10 to-teal-500/5", 
+                borderColor: "hover:border-emerald-500/30", 
+                glowColor: "group-hover:shadow-emerald-500/10", 
+                logoText: "N", 
+                logoColor: "text-emerald-400 bg-emerald-500/15" 
+              };
+            }
+            if (lowerName.includes("yoroi")) {
+              return { 
+                ...w, 
+                desc: "Emurgo mobile hardware gateway", 
+                color: "from-sky-500/10 to-cyan-500/5", 
+                borderColor: "hover:border-sky-500/30", 
+                glowColor: "group-hover:shadow-sky-500/10", 
+                logoText: "Y", 
+                logoColor: "text-sky-400 bg-sky-500/15" 
+              };
+            }
             return { 
               ...w, 
-              desc: "Cardano Wallet by IOG", 
-              color: "from-amber-500/10 to-orange-500/5", 
-              borderColor: "hover:border-amber-500/30", 
-              glowColor: "group-hover:shadow-amber-500/10", 
-              logoText: "L", 
-              logoColor: "text-amber-400 bg-amber-500/15" 
+              desc: "Cardano Wallet Provider Node", 
+              color: "from-gray-500/10 to-slate-500/5", 
+              borderColor: "hover:border-gray-500/30", 
+              glowColor: "group-hover:shadow-gray-500/10", 
+              logoText: w.name.charAt(0).toUpperCase(), 
+              logoColor: "text-gray-400 bg-gray-500/15" 
             };
-          }
-          if (lowerName.includes("eternl")) {
-            return { 
-              ...w, 
-              desc: "Power-User Cardano Core", 
-              color: "from-blue-500/10 to-indigo-500/5", 
-              borderColor: "hover:border-blue-500/30", 
-              glowColor: "group-hover:shadow-blue-500/10", 
-              logoText: "E", 
-              logoColor: "text-blue-400 bg-blue-500/15" 
-            };
-          }
-          if (lowerName.includes("nami")) {
-            return { 
-              ...w, 
-              desc: "Simple and elegant cardano interface", 
-              color: "from-emerald-500/10 to-teal-500/5", 
-              borderColor: "hover:border-emerald-500/30", 
-              glowColor: "group-hover:shadow-emerald-500/10", 
-              logoText: "N", 
-              logoColor: "text-emerald-400 bg-emerald-500/15" 
-            };
-          }
-          if (lowerName.includes("yoroi")) {
-            return { 
-              ...w, 
-              desc: "Emurgo mobile hardware gateway", 
-              color: "from-sky-500/10 to-cyan-500/5", 
-              borderColor: "hover:border-sky-500/30", 
-              glowColor: "group-hover:shadow-sky-500/10", 
-              logoText: "Y", 
-              logoColor: "text-sky-400 bg-sky-500/15" 
-            };
-          }
-          return { 
-            ...w, 
-            desc: "Cardano Wallet Provider Node", 
-            color: "from-gray-500/10 to-slate-500/5", 
-            borderColor: "hover:border-gray-500/30", 
-            glowColor: "group-hover:shadow-gray-500/10", 
-            logoText: w.name.charAt(0).toUpperCase(), 
-            logoColor: "text-gray-400 bg-gray-500/15" 
-          };
+          });
+          setInstalledWallets(decorated);
         });
-        setInstalledWallets(decorated);
-      });
+      };
+
+      // Run immediately
+      detectWallets();
+
+      // Check again after short delays to catch asynchronously injected extensions
+      const timer1 = setTimeout(detectWallets, 300);
+      const timer2 = setTimeout(detectWallets, 800);
+      const timer3 = setTimeout(detectWallets, 1500);
+
+      return () => {
+        clearTimeout(timer1);
+        clearTimeout(timer2);
+        clearTimeout(timer3);
+      };
     }
   }, [isOpen]);
 
