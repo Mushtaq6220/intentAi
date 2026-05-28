@@ -6,24 +6,33 @@ import { useNetwork } from "@/context/NetworkContext";
 
 let isAdalibInitialized = false;
 
-const initAdalib = async () => {
+const initAdalib = async (activeNetwork = "preprod") => {
   if (isAdalibInitialized) return;
   const adalib = await import("@dcspark/adalib");
-  adalib.init({
-    connectors: [
-      new adalib.WalletConnectConnector({
-        relayerRegion: "wss://relay.walletconnect.com",
-        metadata: {
-          name: "AI Intent Cardano",
-          description: "AI-Powered Cardano Financial Operating System",
-          url: window.location.origin,
-          icons: ["https://cloud.walletconnect.com/favicon.ico"],
-        },
-        projectId: "796f69f7c96adf708d9710392d168e0e",
-        chains: [adalib.cardanoMainnetWalletConnect(), adalib.cardanoPreprodWalletConnect()],
-      }),
-    ],
-  });
+  
+  const chosenChain = activeNetwork === "mainnet"
+    ? adalib.cardanoMainnetWalletConnect()
+    : adalib.cardanoPreprodWalletConnect();
+
+  adalib.init(
+    () => ({
+      connectors: [
+        new adalib.WalletConnectConnector({
+          relayerRegion: "wss://relay.walletconnect.com",
+          metadata: {
+            name: "AI Intent Cardano",
+            description: "AI-Powered Cardano Financial Operating System",
+            url: window.location.origin,
+            icons: ["https://cloud.walletconnect.com/favicon.ico"],
+          },
+          qrcode: true,
+        }),
+      ],
+      connectorName: "walletconnect",
+      chosenChain: chosenChain,
+    }),
+    "796f69f7c96adf708d9710392d168e0e"
+  );
   isAdalibInitialized = true;
 };
 
@@ -36,11 +45,20 @@ if (typeof window !== "undefined") {
       apiVersion: "1.0.0",
       enable: async () => {
         console.log("[WalletConnect] Initializing adalib...");
-        await initAdalib();
-        console.log("[WalletConnect] Connecting...");
+        const activeNetwork = localStorage.getItem("cardano_network") || "preprod";
+        await initAdalib(activeNetwork);
+        
+        console.log("[WalletConnect] Ensuring network is correct...");
         const adalib = await import("@dcspark/adalib");
-        await adalib.connect("WalletConnectConnector");
-        console.log("[WalletConnect] Connected, getting API...");
+        const chosenChain = activeNetwork === "mainnet"
+          ? adalib.cardanoMainnetWalletConnect()
+          : adalib.cardanoPreprodWalletConnect();
+        adalib.switchNetwork(chosenChain);
+
+        console.log("[WalletConnect] Connecting via adalib...");
+        await adalib.connect();
+        
+        console.log("[WalletConnect] Connected successfully, retrieving API...");
         const api = await adalib.getCardanoAPI();
         return api;
       },
@@ -187,6 +205,28 @@ export const WalletProvider = ({ children }) => {
           const walletId = getPreferredWalletId(savedWallet, savedWalletId);
           
           if (walletId) {
+             if (savedWallet === "WalletConnect") {
+               // Lazily load adalib and check if a valid WalletConnect session exists.
+               // This prevents the QR code modal from popping up unexpectedly on page refresh.
+               const adalib = await import("@dcspark/adalib");
+               const activeNetwork = localStorage.getItem("cardano_network") || "preprod";
+               await initAdalib(activeNetwork);
+               
+               const connector = adalib.getActiveConnector();
+               const provider = await connector.getProvider();
+               if (!provider || !provider.session) {
+                 console.log("[WalletContext] WalletConnect session not active, skipping silent reconnect");
+                 localStorage.removeItem("connected_wallet");
+                 localStorage.removeItem("connected_wallet_id");
+                 localStorage.removeItem("connected_wallet_address");
+                 setIsConnected(false);
+                 setConnectedWallet(null);
+                 setConnectedWalletId(null);
+                 setWalletAddress(null);
+                 return;
+               }
+             }
+
              const wallet = await withTimeout(
                BrowserWallet.enable(walletId),
                15000,
