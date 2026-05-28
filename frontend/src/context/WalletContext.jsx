@@ -283,12 +283,16 @@ export const WalletProvider = ({ children }) => {
                }
              }
 
-             const wallet = await withTimeout(
-               BrowserWallet.enable(walletId),
+             const connectionResult = await withTimeout(
+               (async () => {
+                 const walletInstance = await BrowserWallet.enable(walletId);
+                 const changeAddress = await walletInstance.getChangeAddress();
+                 return { walletInstance, changeAddress };
+               })(),
                15000,
                `${savedWallet} wallet did not respond. Unlock the extension and try again.`
              );
-             const address = await wallet.getChangeAddress();
+             const { walletInstance: wallet, changeAddress: address } = connectionResult;
              
              setIsConnected(true);
              setConnectedWallet(savedWallet);
@@ -326,23 +330,35 @@ export const WalletProvider = ({ children }) => {
       }
 
       console.log(`Requesting connection to ${walletName} using wallet id "${walletId}"...`);
-      const wallet = await withTimeout(
-        BrowserWallet.enable(walletId),
+      const connectionResult = await withTimeout(
+        (async () => {
+          const walletInstance = await BrowserWallet.enable(walletId);
+          const changeAddress = await walletInstance.getChangeAddress();
+          let balance = 0;
+          try {
+            const balanceItems = await walletInstance.getBalance();
+            const lovelaceObj = balanceItems.find((b) => b.unit === "lovelace");
+            balance = lovelaceObj ? Number(lovelaceObj.quantity) / 1000000 : 0;
+          } catch (e) {
+            console.warn("Failed to retrieve balance on connect:", e);
+          }
+          return { walletInstance, changeAddress, balance };
+        })(),
         15000,
-        `${walletName} did not respond. Unlock the extension, approve the popup, and try again.`
+        `${walletName} did not respond. Please ensure: 1) The extension is unlocked, 2) 'dApp Connector' is enabled in settings, 3) Conflicting extensions are disabled.`
       );
       
-      const address = await wallet.getChangeAddress();
+      const { walletInstance: wallet, changeAddress: address, balance } = connectionResult;
       
       setIsConnected(true);
       setConnectedWallet(walletName);
       setConnectedWalletId(walletId);
       setWalletAddress(address);
       setMeshWallet(wallet);
+      setAdaBalance(balance);
       localStorage.setItem("connected_wallet", walletName);
       localStorage.setItem("connected_wallet_id", walletId);
       localStorage.setItem("connected_wallet_address", address);
-      refreshWalletBalance(wallet, setAdaBalance);
       
       console.log(`Connected to ${walletName}! Address: ${address.substring(0, 15)}...`);
       
