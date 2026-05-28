@@ -66,7 +66,7 @@ export const NotificationCenter = ({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={{ type: "spring", damping: 20, stiffness: 300 }}
-            className="absolute left-1/2 -translate-x-[42%] sm:left-auto sm:right-0 sm:translate-x-0 mt-3 w-[290px] sm:w-80 rounded-2xl solid-dropdown shadow-2xl z-[100] overflow-hidden"
+            className="fixed top-20 left-6 right-6 sm:absolute sm:top-auto sm:left-auto sm:right-0 sm:translate-x-0 sm:mt-3 sm:w-80 rounded-2xl solid-dropdown shadow-2xl z-[100] overflow-hidden"
           >
             {/* Header */}
             <div className="p-4 border-b border-white/5 flex items-center justify-between bg-black/20">

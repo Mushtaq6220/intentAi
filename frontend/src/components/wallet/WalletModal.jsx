@@ -168,11 +168,17 @@ export const WalletModal = ({ isOpen, onClose }) => {
             {/* Wallet list Grid */}
             <div className="space-y-3.5 relative z-10">
               {installedWallets.length === 0 ? (
-                <div className="p-5 rounded-2xl border border-dashed border-white/10 text-center bg-[#030308]/40">
-                  <Terminal className="w-6 h-6 text-gray-600 mx-auto mb-2" />
+                <div className="p-5 rounded-2xl border border-dashed border-white/10 text-center bg-[#030308]/40 space-y-3">
+                  <Terminal className="w-6 h-6 text-gray-600 mx-auto" />
                   <p className="text-xs text-gray-400 font-semibold leading-relaxed">
                     No Cardano browser wallets detected. Please install Lacey, Eternl, or Yoroi, or open this platform inside a mobile Web3 browser.
                   </p>
+                  <div className="p-3 rounded-xl bg-cyan-500/5 border border-cyan-500/10 text-left">
+                    <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider block">📱 Mobile Connection Tip</span>
+                    <span className="text-[10px] text-gray-400 leading-normal block mt-1 font-semibold">
+                      To connect on iOS or Android, please open this website inside the built-in dApp browser of your Yoroi or Lace mobile application.
+                    </span>
+                  </div>
                 </div>
               ) : (
                 installedWallets.map((wallet) => {

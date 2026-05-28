@@ -133,7 +133,7 @@ export const NetworkSwitcher = () => {
               transition={{ type: "spring", damping: 25, stiffness: 280 }}
               className="fixed inset-0 flex items-center justify-center z-[201] p-4 pointer-events-none"
             >
-              <div className="relative w-full max-w-lg bg-[#0e0e1b] border border-rose-500/20 rounded-3xl p-6.5 shadow-[0_0_50px_rgba(244,63,94,0.15)] overflow-hidden pointer-events-auto">
+              <div className="relative w-full max-w-lg bg-[#0e0e1b] border border-rose-500/20 rounded-3xl p-4 sm:p-6.5 shadow-[0_0_50px_rgba(244,63,94,0.15)] max-h-[85vh] overflow-y-auto pointer-events-auto scrollbar-thin">
                 {/* Glowing gold/red accent lines */}
                 <div className="absolute top-0 right-0 w-48 h-48 bg-rose-500/5 rounded-full blur-[80px] pointer-events-none" />
                 <div className="absolute bottom-0 left-0 w-48 h-48 bg-amber-500/5 rounded-full blur-[80px] pointer-events-none" />
@@ -146,49 +146,49 @@ export const NetworkSwitcher = () => {
                   <X className="w-4 h-4" />
                 </button>
 
-                <div className="space-y-6">
+                <div className="space-y-4 sm:space-y-6">
                   {/* Warning Header */}
-                  <div className="flex items-center gap-3.5">
-                    <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center shrink-0 shadow-lg shadow-rose-500/10">
-                      <ShieldAlert className="w-6 h-6 text-rose-500 animate-pulse" />
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center shrink-0 shadow-lg shadow-rose-500/10">
+                      <ShieldAlert className="w-5 h-5 sm:w-6 sm:h-6 text-rose-500 animate-pulse" />
                     </div>
                     <div>
-                      <span className="text-[10px] font-bold text-rose-400 uppercase tracking-widest leading-none">Security Advisory</span>
-                      <h4 className="text-lg font-black text-white mt-1 leading-none">Entering Cardano Mainnet</h4>
+                      <span className="text-[9px] sm:text-[10px] font-bold text-rose-400 uppercase tracking-widest leading-none">Security Advisory</span>
+                      <h4 className="text-base sm:text-lg font-black text-white mt-1 leading-none">Entering Cardano Mainnet</h4>
                     </div>
                   </div>
 
-                  <p className="text-xs leading-relaxed text-gray-300">
+                  <p className="text-[11px] sm:text-xs leading-relaxed text-gray-300">
                     You are switching from the Preprod sandbox to the <span className="font-extrabold text-white">Cardano Mainnet</span>. This environment executes real transactions using real ADA and digital assets. Please read the advisories below before confirming.
                   </p>
 
                   {/* Advisories Grid */}
-                  <div className="space-y-3">
-                    <div className="flex items-start gap-3 p-3.5 rounded-2xl bg-white/5 border border-white/5">
-                      <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                  <div className="space-y-2.5 sm:space-y-3">
+                    <div className="flex items-start gap-2.5 sm:gap-3 p-3 sm:p-3.5 rounded-xl sm:rounded-2xl bg-white/5 border border-white/5">
+                      <AlertTriangle className="w-4.5 h-4.5 sm:w-5 sm:h-5 text-amber-500 shrink-0 mt-0.5" />
                       <div>
-                        <span className="text-xs font-bold text-white block">Real Value Assets</span>
-                        <span className="text-[11px] text-gray-400 leading-relaxed mt-1 block">
+                        <span className="text-[11px] sm:text-xs font-bold text-white block">Real Value Assets</span>
+                        <span className="text-[10px] sm:text-[11px] text-gray-400 leading-relaxed mt-1 block">
                           Mainnet execution involves real funds. Any tokens sent, swapped, or staked represent real financial value. Transaction mistakes cannot be reversed.
                         </span>
                       </div>
                     </div>
 
-                    <div className="flex items-start gap-3 p-3.5 rounded-2xl bg-white/5 border border-white/5">
-                      <Coins className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+                    <div className="flex items-start gap-2.5 sm:gap-3 p-3 sm:p-3.5 rounded-xl sm:rounded-2xl bg-white/5 border border-white/5">
+                      <Coins className="w-4.5 h-4.5 sm:w-5 sm:h-5 text-rose-400 shrink-0 mt-0.5" />
                       <div>
-                        <span className="text-xs font-bold text-white block">Estimated Ledger Fees</span>
-                        <span className="text-[11px] text-gray-400 leading-relaxed mt-1 block">
+                        <span className="text-[11px] sm:text-xs font-bold text-white block">Estimated Ledger Fees</span>
+                        <span className="text-[10px] sm:text-[11px] text-gray-400 leading-relaxed mt-1 block">
                           Cardano network ledger fees (typically <span className="font-mono text-white font-bold">0.17 to 0.35 ADA</span>) are dynamically calculated on-chain. Swap contracts incur additional script execution and batcher fees (~2.0 to 4.0 ADA).
                         </span>
                       </div>
                     </div>
 
-                    <div className="flex items-start gap-3 p-3.5 rounded-2xl bg-white/5 border border-white/5">
-                      <Globe className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
+                    <div className="flex items-start gap-2.5 sm:gap-3 p-3 sm:p-3.5 rounded-xl sm:rounded-2xl bg-white/5 border border-white/5">
+                      <Globe className="w-4.5 h-4.5 sm:w-5 sm:h-5 text-blue-400 shrink-0 mt-0.5" />
                       <div>
-                        <span className="text-xs font-bold text-white block">DEX Liquidity & Pricing</span>
-                        <span className="text-[11px] text-gray-400 leading-relaxed mt-1 block">
+                        <span className="text-[11px] sm:text-xs font-bold text-white block">DEX Liquidity & Pricing</span>
+                        <span className="text-[10px] sm:text-[11px] text-gray-400 leading-relaxed mt-1 block">
                           Mainnet swaps query real, live liquidity pools. Swapping very large amounts relative to pool balances can cause substantial slippage and price impact.
                         </span>
                       </div>
@@ -196,25 +196,25 @@ export const NetworkSwitcher = () => {
                   </div>
 
                   {/* Staking Info Alert */}
-                  <div className="p-3 rounded-2xl bg-rose-500/5 border border-rose-500/15 flex items-start gap-2.5">
-                    <Info className="w-4 h-4 text-rose-400 mt-0.5 shrink-0" />
-                    <p className="text-[10px] text-rose-300 leading-relaxed">
+                  <div className="p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-rose-500/5 border border-rose-500/15 flex items-start gap-2 sm:gap-2.5">
+                    <Info className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-rose-400 mt-0.5 shrink-0" />
+                    <p className="text-[9px] sm:text-[10px] text-rose-300 leading-relaxed">
                       Staking on Cardano is non-custodial and secure. Staked ADA remains in your wallet at all times under your ownership. Staking operations require a 2.0 ADA deposit, refundable upon unstaking.
                     </p>
                   </div>
 
                   {/* Action buttons */}
-                  <div className="flex flex-col sm:flex-row gap-3.5 pt-2">
+                  <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3.5 pt-1.5 sm:pt-2">
                     <button
                       onClick={confirmSwitchToMainnet}
-                      className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-400 hover:to-amber-400 text-white font-extrabold text-xs transition-all shadow-lg shadow-rose-500/10 border border-rose-400/20 active:scale-[0.98] cursor-pointer"
+                      className="flex-1 flex items-center justify-center gap-2 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-400 hover:to-amber-400 text-white font-extrabold text-[11px] sm:text-xs transition-all shadow-lg shadow-rose-500/10 border border-rose-400/20 active:scale-[0.98] cursor-pointer"
                     >
                       <span>Switch to Mainnet</span>
-                      <ArrowRight className="w-4 h-4" />
+                      <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     </button>
                     <button
                       onClick={() => setShowWarningModal(false)}
-                      className="px-5 py-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 hover:text-white font-bold text-xs transition-all active:scale-[0.98] cursor-pointer"
+                      className="px-4 py-2.5 sm:px-5 sm:py-3 rounded-xl sm:rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 hover:text-white font-bold text-[11px] sm:text-xs transition-all active:scale-[0.98] cursor-pointer"
                     >
                       Cancel
                     </button>

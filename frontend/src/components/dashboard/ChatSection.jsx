@@ -688,8 +688,8 @@ export const ChatSection = ({
         {messages.length === 0 ? (
           /* Jarvis Cockpit Empty State */
           <div className="min-h-full flex flex-col items-center justify-start md:justify-center text-center max-w-xl mx-auto space-y-5 md:space-y-8 select-none py-4 md:py-12">
-            <div className="w-16 h-16 md:w-24 md:h-24 rounded-2xl md:rounded-3xl overflow-hidden shadow-2xl animate-float-slow shrink-0 border border-[var(--card-border)] bg-transparent">
-              <img src="/logo-avatar.png" alt="IntentAi Logo" className="w-full h-full object-cover" />
+            <div className="w-16 h-16 md:w-24 md:h-24 rounded-2xl md:rounded-3xl overflow-hidden shadow-2xl animate-float-slow shrink-0 border border-white/10 bg-slate-950 flex items-center justify-center">
+              <img src="/logo-avatar.png" alt="IntentAi Logo" className="w-12 h-12 md:w-18 md:h-18 object-contain" />
             </div>
             
             <div className="space-y-2.5">
@@ -702,21 +702,21 @@ export const ChatSection = ({
             </div>
 
             {/* Suggestions Command Dock Grid */}
-            <div className="w-full space-y-3.5 pt-4">
+            <div className="w-full space-y-2.5 pt-3 sm:pt-4">
               <p className="text-[9px] text-gray-500 font-extrabold uppercase tracking-widest">Select command protocol to initialize</p>
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-2.5 sm:grid-cols-2">
                 {suggestions.map((s, idx) => (
                   <button
                     key={idx}
                     onClick={() => handleSuggestionClick(s.text)}
-                    className="flex items-start justify-between text-left p-4 rounded-2xl border border-white/5 bg-[#030308]/40 hover:bg-white/5 hover:border-cyan-500/20 transition-all duration-300 group shadow-md"
+                    className="flex items-start justify-between text-left p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-white/5 bg-[#030308]/40 hover:bg-white/5 hover:border-cyan-500/20 transition-all duration-300 group shadow-md"
                   >
-                    <div className="space-y-1 pr-4">
-                      <span className="text-[9px] font-black uppercase tracking-wider block text-cyan-400">{s.label}</span>
-                      <span className="text-xs text-gray-200 font-semibold leading-tight">"{s.text}"</span>
-                      <span className="text-[9px] text-gray-500 block font-mono">{s.desc}</span>
+                    <div className="space-y-0.5 sm:space-y-1 pr-2 sm:pr-4">
+                      <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-wider block text-cyan-400">{s.label}</span>
+                      <span className="text-[11px] sm:text-xs text-gray-200 font-semibold leading-tight block">"{s.text}"</span>
+                      <span className="text-[8px] sm:text-[9px] text-gray-500 block font-mono">{s.desc}</span>
                     </div>
-                    <ArrowUpRight className="w-4 h-4 text-gray-600 group-hover:text-cyan-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all shrink-0 mt-0.5" />
+                    <ArrowUpRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-600 group-hover:text-cyan-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all shrink-0 mt-0.5" />
                   </button>
                 ))}
               </div>
@@ -736,9 +736,9 @@ export const ChatSection = ({
                   className={`flex gap-3 max-w-[95%] chat-msg-enter ${isAi ? "mr-auto" : "ml-auto flex-row-reverse"}`}
                 >
                   {/* Glowing Custom Avatars */}
-                  <div className="w-9 h-9 rounded-xl overflow-hidden shrink-0 shadow-md">
+                  <div className="w-9 h-9 rounded-xl overflow-hidden shrink-0 shadow-md flex items-center justify-center bg-slate-950 border border-white/10">
                     {isAi ? (
-                      <img src="/logo-avatar.png" alt="IntentAi Avatar" className="w-full h-full object-cover" />
+                      <img src="/logo-avatar.png" alt="IntentAi Avatar" className="w-7 h-7 object-contain" />
                     ) : (
                       <div className={`w-full h-full p-[1px] bg-gradient-to-tr ${colors.brandGradient} rounded-xl`}>
                         <div className="w-full h-full rounded-[9px] bg-[var(--background)] flex items-center justify-center">
@@ -778,8 +778,8 @@ export const ChatSection = ({
             {/* Bouncing three-dots typing/formulaic processing indicator */}
             {isProcessing && (
               <div className="flex gap-3 max-w-[95%] mr-auto items-start chat-msg-enter">
-                <div className="w-9 h-9 rounded-xl overflow-hidden shrink-0 shadow-md">
-                  <img src="/logo-avatar.png" alt="IntentAi Avatar" className="w-full h-full object-cover" />
+                <div className="w-9 h-9 rounded-xl overflow-hidden shrink-0 shadow-md flex items-center justify-center bg-slate-950 border border-white/10">
+                  <img src="/logo-avatar.png" alt="IntentAi Avatar" className="w-7 h-7 object-contain" />
                 </div>
                 <div className="chat-bubble-ai flex items-center gap-3.5 shadow-lg">
                   <span className="text-xs font-bold leading-none uppercase tracking-widest text-cyan-400 animate-pulse">Interpreting Language Protocol</span>

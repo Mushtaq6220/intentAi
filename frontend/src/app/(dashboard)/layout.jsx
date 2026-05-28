@@ -111,8 +111,8 @@ export default function DashboardLayout({ children }) {
               <Menu className="w-5 h-5" />
             </button>
             {/* Small Mobile Logo */}
-            <div className="md:hidden flex items-center shrink-0 w-8 h-8 rounded-xl overflow-hidden shadow-md border border-[var(--card-border)] bg-[var(--card-bg)]">
-              <img src="/logo-avatar.png" alt="IntentAi Logo" className="w-full h-full object-cover" />
+            <div className="md:hidden flex items-center justify-center shrink-0 w-9 h-9 rounded-xl overflow-hidden shadow-md border border-white/10 bg-slate-950">
+              <img src="/logo-avatar.png" alt="IntentAi Logo" className="w-7 h-7 object-contain" />
             </div>
             {isConnected ? (
               <div className="flex items-center gap-2.5">

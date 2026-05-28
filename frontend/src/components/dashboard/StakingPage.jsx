@@ -9,6 +9,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { Transaction } from "@meshsdk/core";
 import { useNetwork } from "@/context/NetworkContext";
+import { useTheme } from "@/context/ThemeContext";
 
 const PREPROD_POOLS = [
   {
@@ -139,6 +140,7 @@ const USER_STAKES = [
 export const StakingPage = () => {
   const { isConnected, adaBalance, meshWallet, isWalletNetworkCorrect } = useWallet();
   const { activeNetwork, colors, isMainnet, networkName } = useNetwork();
+  const { theme } = useTheme();
   const [selectedPool, setSelectedPool] = useState(null);
   const [stakeAmount, setStakeAmount] = useState("");
   const [stakeState, setStakeState] = useState("idle"); // idle | preview | staking | success | error
@@ -271,11 +273,21 @@ export const StakingPage = () => {
         {activeView === "pools" && (
           <>
             {/* Informational Spatial Hub Advisor Banner */}
-            <div className="mb-8 p-4 rounded-2xl bg-cyan-500/5 border border-cyan-500/10 flex items-start gap-4 shadow-sm backdrop-blur-md">
-              <Info className="w-5 h-5 text-cyan-400 shrink-0 mt-0.5" />
+            <div className={`mb-8 p-4 rounded-2xl border flex items-start gap-4 shadow-sm backdrop-blur-md ${
+              theme === "light"
+                ? "bg-indigo-500/5 border-indigo-500/20"
+                : "bg-cyan-500/5 border-cyan-500/10"
+            }`}>
+              <Info className={`w-5 h-5 shrink-0 mt-0.5 ${theme === "light" ? "text-indigo-600" : "text-cyan-400"}`} />
               <div className="space-y-1">
-                <span className="text-xs font-extrabold text-cyan-300 uppercase tracking-wider block">Non-Custodial Decentralized Staking</span>
-                <p className="text-[11px] text-cyan-200 leading-relaxed font-medium">
+                <span className={`text-xs font-extrabold uppercase tracking-wider block ${
+                  theme === "light" ? "text-indigo-900" : "text-cyan-300"
+                }`}>
+                  Non-Custodial Decentralized Staking
+                </span>
+                <p className={`text-[11px] leading-relaxed font-medium ${
+                  theme === "light" ? "text-slate-900" : "text-cyan-200"
+                }`}>
                   Staked ADA never leaves your wallet extension. Staking processes generate on-chain delegation certificates representing block production validation weights. You retain full liquid asset control at all times, with rewards distributed automatically every 5-day epoch.
                 </p>
               </div>
