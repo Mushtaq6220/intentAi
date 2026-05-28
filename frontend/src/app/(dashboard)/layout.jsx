@@ -101,9 +101,9 @@ export default function DashboardLayout({ children }) {
         <div className={`absolute top-0 right-0 w-44 h-44 rounded-full blur-[80px] pointer-events-none ${colors.bgGlow}`} />
 
         {/* ── Cockpit Top Header ───────────────────────────────────────── */}
-        <header className="h-16 shrink-0 flex items-center justify-between px-6 border-b border-white/5 bg-transparent z-20 select-none">
+        <header className="h-16 shrink-0 flex items-center justify-between px-3 sm:px-6 border-b border-white/5 bg-transparent z-20 select-none overflow-hidden">
           {/* Left Area — mobile drawer trigger + network state badge */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 shrink-0">
             <button
               onClick={() => setIsSidebarOpen(true)}
               className="p-2.5 rounded-xl bg-white/5 border border-white/5 text-gray-400 hover:text-white md:hidden transition-all cursor-pointer shadow-md"
@@ -133,12 +133,12 @@ export default function DashboardLayout({ children }) {
           </div>
 
           {/* Right Area — Platform controls */}
-          <div className="flex items-center gap-2.5 md:gap-3.5">
+          <div className="flex items-center gap-1.5 sm:gap-2.5 md:gap-3.5 shrink-0">
 
             {/* Theme Toggle */}
             <button
               onClick={toggleTheme}
-              className={`p-3 rounded-xl bg-white/5 border border-white/5 hover:border-cyan-500/20 text-gray-400 hover:text-white transition-all duration-300 active:scale-95 cursor-pointer shadow-md`}
+              className={`hidden sm:flex p-2.5 sm:p-3 rounded-xl bg-white/5 border border-white/5 hover:border-cyan-500/20 text-gray-400 hover:text-white transition-all duration-300 active:scale-95 cursor-pointer shadow-md`}
               title="Toggle system theme"
             >
               {theme === "dark"
@@ -162,9 +162,9 @@ export default function DashboardLayout({ children }) {
               <div className="relative">
                 <button
                   onClick={() => setIsWalletDropdownOpen(prev => !prev)}
-                  className={`flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-white/5 border border-white/5 hover:border-cyan-500/20 text-gray-300 hover:text-white transition-all duration-300 active:scale-95 select-none cursor-pointer shadow-md`}
+                  className={`flex items-center gap-1.5 sm:gap-2.5 px-2 sm:px-3.5 py-2 rounded-xl bg-white/5 border border-white/5 hover:border-cyan-500/20 text-gray-300 hover:text-white transition-all duration-300 active:scale-95 select-none cursor-pointer shadow-md shrink-0`}
                 >
-                  <div className={`w-6.5 h-6.5 rounded-lg bg-gradient-to-tr ${colors.brandGradient} flex items-center justify-center font-extrabold text-xs text-white shadow-md`}>
+                  <div className={`w-7 h-7 rounded-lg bg-gradient-to-tr ${colors.brandGradient} flex items-center justify-center font-extrabold text-xs text-white shadow-md shrink-0`}>
                     {connectedWallet?.charAt(0).toUpperCase() || "W"}
                   </div>
                   <div className="hidden sm:flex flex-col text-left leading-none">
@@ -173,7 +173,7 @@ export default function DashboardLayout({ children }) {
                       {walletAddress?.substring(0, 6)}...{walletAddress?.substring(walletAddress.length - 4)}
                     </span>
                   </div>
-                  <ChevronDown className={`w-3.5 h-3.5 text-gray-500 transition-transform duration-250 ${isWalletDropdownOpen ? "rotate-180" : ""}`} />
+                  <ChevronDown className={`hidden sm:block w-3.5 h-3.5 text-gray-500 transition-transform duration-250 ${isWalletDropdownOpen ? "rotate-180" : ""}`} />
                 </button>
 
                 <AnimatePresence>
