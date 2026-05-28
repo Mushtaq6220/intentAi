@@ -4,6 +4,50 @@ import React, { createContext, useContext, useState, useEffect, useRef, useCallb
 import { BrowserWallet } from "@meshsdk/core";
 import { useNetwork } from "@/context/NetworkContext";
 
+let isAdalibInitialized = false;
+
+const initAdalib = async () => {
+  if (isAdalibInitialized) return;
+  const adalib = await import("@dcspark/adalib");
+  adalib.init({
+    connectors: [
+      new adalib.WalletConnectConnector({
+        relayerRegion: "wss://relay.walletconnect.com",
+        metadata: {
+          name: "AI Intent Cardano",
+          description: "AI-Powered Cardano Financial Operating System",
+          url: window.location.origin,
+          icons: ["https://cloud.walletconnect.com/favicon.ico"],
+        },
+        projectId: "796f69f7c96adf708d9710392d168e0e",
+        chains: [adalib.cardanoMainnetWalletConnect(), adalib.cardanoPreprodWalletConnect()],
+      }),
+    ],
+  });
+  isAdalibInitialized = true;
+};
+
+if (typeof window !== "undefined") {
+  window.cardano = window.cardano || {};
+  if (!window.cardano.walletconnect) {
+    window.cardano.walletconnect = {
+      name: "WalletConnect",
+      icon: "https://cloud.walletconnect.com/favicon.ico",
+      apiVersion: "1.0.0",
+      enable: async () => {
+        console.log("[WalletConnect] Initializing adalib...");
+        await initAdalib();
+        console.log("[WalletConnect] Connecting...");
+        const adalib = await import("@dcspark/adalib");
+        await adalib.connect("WalletConnectConnector");
+        console.log("[WalletConnect] Connected, getting API...");
+        const api = await adalib.getCardanoAPI();
+        return api;
+      },
+    };
+  }
+}
+
 const WalletContext = createContext(undefined);
 
 const withTimeout = async (promise, ms, message) => {
@@ -217,6 +261,15 @@ export const WalletProvider = ({ children }) => {
   };
 
   const disconnectWallet = () => {
+    if (connectedWallet === "WalletConnect") {
+      import("@dcspark/adalib").then((adalib) => {
+        try {
+          adalib.disconnect();
+        } catch (e) {
+          console.warn("WalletConnect disconnect failed:", e);
+        }
+      });
+    }
     setIsConnected(false);
     setConnectedWallet(null);
     setConnectedWalletId(null);

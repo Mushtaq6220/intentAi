@@ -30,6 +30,15 @@ export const WalletModal = ({ isOpen, onClose }) => {
               }
             });
           }
+          // Always offer WalletConnect to users (especially for mobile / QR code flows)
+          if (!wallets.some(w => w.id === "walletconnect" || w.name.toLowerCase() === "walletconnect")) {
+            wallets.push({
+              id: "walletconnect",
+              name: "WalletConnect",
+              icon: "",
+              version: "2.0"
+            });
+          }
 
           const decorated = wallets.map(w => {
             const lowerName = w.name.toLowerCase();
@@ -75,6 +84,17 @@ export const WalletModal = ({ isOpen, onClose }) => {
                 glowColor: "group-hover:shadow-sky-500/10", 
                 logoText: "Y", 
                 logoColor: "text-sky-400 bg-sky-500/15" 
+              };
+            }
+            if (lowerName.includes("walletconnect")) {
+              return { 
+                ...w, 
+                desc: "Yoroi, Eternl & Mobile Wallets", 
+                color: "from-blue-500/10 to-cyan-500/5", 
+                borderColor: "hover:border-blue-400/30", 
+                glowColor: "group-hover:shadow-blue-500/10", 
+                logoText: "WC", 
+                logoColor: "text-blue-400 bg-blue-500/15" 
               };
             }
             return { 
@@ -268,6 +288,14 @@ export const WalletModal = ({ isOpen, onClose }) => {
                   <p className="text-[10px] font-bold uppercase tracking-wider text-amber-400">{errorMsg}</p>
                 </div>
               )}
+            </div>
+
+            {/* Mobile Connection Tips */}
+            <div className="mt-4 p-3.5 rounded-2xl bg-cyan-500/5 border border-cyan-500/10 text-left relative z-10">
+              <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider block">📱 Mobile & Standard Chrome Connection</span>
+              <span className="text-[10px] text-gray-400 leading-normal block mt-1.5 font-semibold">
+                Use **WalletConnect** to pair with mobile wallet apps like Eternl or Yoroi on iOS/Android from any standard mobile browser (Chrome/Safari) via QR code or direct deep-link.
+              </span>
             </div>
 
             {/* Footer advisories */}
