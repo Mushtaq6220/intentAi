@@ -9,6 +9,13 @@ export const WalletModal = ({ isOpen, onClose }) => {
   const { connectWallet, isConnecting, connectingWallet, connectedWallet } = useWallet();
 
   const [installedWallets, setInstalledWallets] = React.useState([]);
+  const [isMobile, setIsMobile] = React.useState(false);
+
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      setIsMobile(/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
+    }
+  }, []);
 
   React.useEffect(() => {
     if (typeof window !== "undefined") {
@@ -30,14 +37,17 @@ export const WalletModal = ({ isOpen, onClose }) => {
               }
             });
           }
-          // Always offer WalletConnect to users (especially for mobile / QR code flows)
-          if (!wallets.some(w => w.id === "walletconnect" || w.name.toLowerCase() === "walletconnect")) {
-            wallets.push({
-              id: "walletconnect",
-              name: "WalletConnect",
-              icon: "",
-              version: "2.0"
-            });
+          // Offer WalletConnect only to mobile users (desktop users have browser extensions automatically detected)
+          const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+          if (isMobileDevice) {
+            if (!wallets.some(w => w.id === "walletconnect" || w.name.toLowerCase() === "walletconnect")) {
+              wallets.push({
+                id: "walletconnect",
+                name: "WalletConnect",
+                icon: "",
+                version: "2.0"
+              });
+            }
           }
 
           const decorated = wallets.map(w => {
@@ -291,12 +301,14 @@ export const WalletModal = ({ isOpen, onClose }) => {
             </div>
 
             {/* Mobile Connection Tips */}
-            <div className="mt-4 p-3.5 rounded-2xl bg-cyan-500/5 border border-cyan-500/10 text-left relative z-10">
-              <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider block">📱 Mobile & Standard Chrome Connection</span>
-              <span className="text-[10px] text-gray-400 leading-normal block mt-1.5 font-semibold">
-                Use **WalletConnect** to pair with mobile wallet apps like Eternl or Yoroi on iOS/Android from any standard mobile browser (Chrome/Safari) via QR code or direct deep-link.
-              </span>
-            </div>
+            {isMobile && (
+              <div className="mt-4 p-3.5 rounded-2xl bg-cyan-500/5 border border-cyan-500/10 text-left relative z-10">
+                <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider block">📱 Mobile & Standard Chrome Connection</span>
+                <span className="text-[10px] text-gray-400 leading-normal block mt-1.5 font-semibold">
+                  Use **WalletConnect** to pair with mobile wallet apps like Eternl or Yoroi on iOS/Android from any standard mobile browser (Chrome/Safari) via QR code or direct deep-link.
+                </span>
+              </div>
+            )}
 
             {/* Footer advisories */}
             <p className="text-[9px] text-center text-gray-600 font-mono tracking-wide mt-6 leading-relaxed">
