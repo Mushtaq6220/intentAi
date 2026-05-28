@@ -10,6 +10,62 @@ const initAdalib = async (activeNetwork = "preprod") => {
   if (isAdalibInitialized) return;
   const adalib = await import("@dcspark/adalib");
   
+  // Patch WalletConnectConnector prototype to restructure requested namespaces.
+  // This is required because Yoroi and Eternl wallets reject connection requests that require
+  // custom network change events ('cardano_onNetworkChange', 'cardano_onAccountChange').
+  // By moving these events and non-essential methods into optionalNamespaces, the wallets
+  // can connect successfully while still allowing the dApp to request them if supported.
+  if (adalib.WalletConnectConnector && adalib.WalletConnectConnector.prototype) {
+    const originalConnect = adalib.WalletConnectConnector.prototype.connect;
+    adalib.WalletConnectConnector.prototype.connect = async function () {
+      try {
+        const provider = await this.getProvider();
+        if (provider && !provider._isPatchedForYoroi) {
+          provider._isPatchedForYoroi = true;
+          const originalProviderConnect = provider.connect.bind(provider);
+          provider.connect = async function (opts) {
+            console.log("[WalletConnect Patch] Intercepting connect options:", opts);
+            if (opts && opts.namespaces && opts.namespaces.cip34) {
+              const originalCip34 = opts.namespaces.cip34;
+              
+              // Define the bare minimum required methods that every Cardano wallet supports
+              const requiredMethods = ["cardano_signTx", "cardano_getBalance", "cardano_getChangeAddress"];
+              const allMethods = originalCip34.methods || [];
+              const reqMethods = allMethods.filter(m => requiredMethods.includes(m));
+              
+              const newOpts = {
+                ...opts,
+                namespaces: {
+                  cip34: {
+                    chains: originalCip34.chains,
+                    methods: reqMethods,
+                    events: [], // Keep required events empty to prevent rejection by Yoroi/Eternl
+                    rpcMap: originalCip34.rpcMap
+                  }
+                },
+                optionalNamespaces: {
+                  cip34: {
+                    chains: originalCip34.chains,
+                    methods: allMethods, // Include all methods as optional
+                    events: originalCip34.events || ["cardano_onNetworkChange", "cardano_onAccountChange"],
+                    rpcMap: originalCip34.rpcMap
+                  }
+                }
+              };
+              
+              console.log("[WalletConnect Patch] Using patched options:", newOpts);
+              return originalProviderConnect(newOpts);
+            }
+            return originalProviderConnect(opts);
+          };
+        }
+      } catch (err) {
+        console.warn("[WalletConnect Patch] Failed to apply Yoroi/Eternl compatibility patch:", err);
+      }
+      return originalConnect.apply(this, arguments);
+    };
+  }
+
   const chosenChain = activeNetwork === "mainnet"
     ? adalib.cardanoMainnetWalletConnect()
     : adalib.cardanoPreprodWalletConnect();
