@@ -3,6 +3,8 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
 import { BrowserWallet } from "@meshsdk/core";
 import { useNetwork } from "@/context/NetworkContext";
+import { useBlockchain } from "@/context/BlockchainContext";
+import { useAccount, useConnect, useDisconnect, useBalance } from "wagmi";
 
 let isAdalibInitialized = false;
 
@@ -187,50 +189,63 @@ const refreshWalletBalance = async (wallet, setAdaBalance) => {
 
 export const WalletProvider = ({ children }) => {
   const { activeNetwork } = useNetwork();
-  const [isConnected, setIsConnected] = useState(false);
+  const { currentBlockchain, isCardano, isBase } = useBlockchain();
+
+  // Cardano specific states
+  const [isCardanoConnected, setIsCardanoConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectingWallet, setConnectingWallet] = useState(null);
   const [connectedWallet, setConnectedWallet] = useState(null);
   const [connectedWalletId, setConnectedWalletId] = useState(null);
-  const [walletAddress, setWalletAddress] = useState(null);
+  const [cardanoAddress, setCardanoAddress] = useState(null);
   const [adaBalance, setAdaBalance] = useState(null);
   const [meshWallet, setMeshWallet] = useState(null);
   const [walletNetworkId, setWalletNetworkId] = useState(null);
 
+  // Base specific states using Wagmi Hooks
+  const { address: evmAddress, isConnected: isEvmConnected } = useAccount();
+  const { disconnect: disconnectEvm } = useDisconnect();
+  const { connectAsync: connectEvmAsync, connectors: evmConnectors } = useConnect();
+  
+  const { data: evmBalanceData } = useBalance({
+    address: evmAddress,
+    query: {
+      enabled: isBase && !!evmAddress,
+    }
+  });
+
+  const evmBalance = evmBalanceData ? parseFloat(evmBalanceData.formatted) : 0;
 
   const refreshBalance = useCallback(async (walletOverride = null) => {
+    if (isBase) return evmBalance;
     const activeWallet = walletOverride || meshWallet;
     if (!activeWallet) return null;
     return refreshWalletBalance(activeWallet, setAdaBalance);
-  }, [meshWallet]);
+  }, [meshWallet, isBase, evmBalance]);
 
-  // ── Auto-poll balance every 30 s while connected ──────────────────────────
+  // Cardano polling balance
   const pollingRef = useRef(null);
   useEffect(() => {
-    if (meshWallet) {
-      // Immediate refresh on wallet change/connect
+    if (meshWallet && isCardano) {
       refreshWalletBalance(meshWallet, setAdaBalance);
-      // Start polling
       pollingRef.current = setInterval(() => {
         refreshWalletBalance(meshWallet, setAdaBalance);
       }, 30_000);
     } else {
-      // Clear polling when disconnected
       if (pollingRef.current) clearInterval(pollingRef.current);
     }
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current);
     };
-  }, [meshWallet]);
+  }, [meshWallet, isCardano]);
 
-  // ── Track and update wallet network ID dynamically ─────────────────────────
+  // Cardano wallet network ID tracking
   useEffect(() => {
     const updateNetworkId = async () => {
-      if (meshWallet) {
+      if (meshWallet && isCardano) {
         try {
           const id = await meshWallet.getNetworkId();
           setWalletNetworkId(id);
-          console.log(`[WalletContext] Connected wallet network ID: ${id} (${id === 1 ? "Mainnet" : "Testnet"})`);
         } catch (err) {
           console.warn("[WalletContext] Failed to get wallet network ID:", err);
           setWalletNetworkId(null);
@@ -240,30 +255,26 @@ export const WalletProvider = ({ children }) => {
       }
     };
     updateNetworkId();
-  }, [meshWallet, activeNetwork]);
+  }, [meshWallet, activeNetwork, isCardano]);
 
-  // Attempt to silently reconnect on mount if previously connected
+  // Cardano silent reconnect
   useEffect(() => {
-
     const checkPersistedWallet = async () => {
       const savedWallet = localStorage.getItem("connected_wallet");
       const savedWalletId = localStorage.getItem("connected_wallet_id");
       const savedAddress = localStorage.getItem("connected_wallet_address");
-      if (savedWallet) {
+      if (savedWallet && isCardano) {
         setConnectedWallet(savedWallet);
         setConnectedWalletId(savedWalletId);
         if (savedAddress) {
-          setWalletAddress(savedAddress);
-          setIsConnected(true);
+          setCardanoAddress(savedAddress);
+          setIsCardanoConnected(true);
         }
 
         try {
           const walletId = getPreferredWalletId(savedWallet, savedWalletId);
-          
           if (walletId) {
              if (savedWallet === "WalletConnect") {
-               // Lazily load adalib and check if a valid WalletConnect session exists.
-               // This prevents the QR code modal from popping up unexpectedly on page refresh.
                const adalib = await import("@dcspark/adalib");
                const activeNetwork = localStorage.getItem("cardano_network") || "preprod";
                await initAdalib(activeNetwork);
@@ -271,14 +282,13 @@ export const WalletProvider = ({ children }) => {
                const connector = adalib.getActiveConnector();
                const provider = await connector.getProvider();
                if (!provider || !provider.session) {
-                 console.log("[WalletContext] WalletConnect session not active, skipping silent reconnect");
                  localStorage.removeItem("connected_wallet");
                  localStorage.removeItem("connected_wallet_id");
                  localStorage.removeItem("connected_wallet_address");
-                 setIsConnected(false);
+                 setIsCardanoConnected(false);
                  setConnectedWallet(null);
                  setConnectedWalletId(null);
-                 setWalletAddress(null);
+                 setCardanoAddress(null);
                  return;
                }
              }
@@ -290,22 +300,19 @@ export const WalletProvider = ({ children }) => {
                  return { walletInstance, changeAddress };
                })(),
                15000,
-               `${savedWallet} wallet did not respond. Unlock the extension and try again.`
+               `${savedWallet} wallet did not respond.`
              );
              const { walletInstance: wallet, changeAddress: address } = connectionResult;
              
-             setIsConnected(true);
+             setIsCardanoConnected(true);
              setConnectedWallet(savedWallet);
              setConnectedWalletId(walletId);
-             setWalletAddress(address);
+             setCardanoAddress(address);
              setMeshWallet(wallet);
              localStorage.setItem("connected_wallet_address", address);
              refreshWalletBalance(wallet, setAdaBalance);
           } else {
-             localStorage.removeItem("connected_wallet");
-             localStorage.removeItem("connected_wallet_id");
-             localStorage.removeItem("connected_wallet_address");
-             setIsConnected(false);
+             setIsCardanoConnected(false);
           }
         } catch (err) {
            console.log("Silent reconnection failed", err);
@@ -315,21 +322,30 @@ export const WalletProvider = ({ children }) => {
     };
     
     checkPersistedWallet();
-  }, []);
+  }, [isCardano]);
 
   const connectWallet = async (walletName) => {
     setIsConnecting(true);
     setConnectingWallet(walletName);
-    setAdaBalance(null);
     
     try {
+      if (isBase) {
+        const connector = evmConnectors.find(
+          c => c.name.toLowerCase().includes(walletName.toLowerCase()) || 
+               c.id.toLowerCase().includes(walletName.toLowerCase())
+        ) || evmConnectors[0];
+
+        if (!connector) throw new Error("No EVM connectors found.");
+        await connectEvmAsync({ connector });
+        return true;
+      }
+
+      // Cardano Wallet Connection Flow
       const walletId = getPreferredWalletId(walletName);
-      
       if (!walletId) {
         throw new Error(`NOT_INSTALLED`);
       }
 
-      console.log(`Requesting connection to ${walletName} using wallet id "${walletId}"...`);
       const connectionResult = await withTimeout(
         (async () => {
           const walletInstance = await BrowserWallet.enable(walletId);
@@ -345,22 +361,20 @@ export const WalletProvider = ({ children }) => {
           return { walletInstance, changeAddress, balance };
         })(),
         15000,
-        `${walletName} did not respond. Please ensure: 1) The extension is unlocked, 2) 'dApp Connector' is enabled in settings, 3) Conflicting extensions are disabled.`
+        `${walletName} did not respond.`
       );
       
       const { walletInstance: wallet, changeAddress: address, balance } = connectionResult;
       
-      setIsConnected(true);
+      setIsCardanoConnected(true);
       setConnectedWallet(walletName);
       setConnectedWalletId(walletId);
-      setWalletAddress(address);
+      setCardanoAddress(address);
       setMeshWallet(wallet);
       setAdaBalance(balance);
       localStorage.setItem("connected_wallet", walletName);
       localStorage.setItem("connected_wallet_id", walletId);
       localStorage.setItem("connected_wallet_address", address);
-      
-      console.log(`Connected to ${walletName}! Address: ${address.substring(0, 15)}...`);
       
       return true;
     } catch (err) {
@@ -373,6 +387,11 @@ export const WalletProvider = ({ children }) => {
   };
 
   const disconnectWallet = () => {
+    if (isBase) {
+      disconnectEvm();
+      return;
+    }
+
     if (connectedWallet === "WalletConnect") {
       import("@dcspark/adalib").then((adalib) => {
         try {
@@ -382,10 +401,10 @@ export const WalletProvider = ({ children }) => {
         }
       });
     }
-    setIsConnected(false);
+    setIsCardanoConnected(false);
     setConnectedWallet(null);
     setConnectedWalletId(null);
-    setWalletAddress(null);
+    setCardanoAddress(null);
     setAdaBalance(null);
     setMeshWallet(null);
     localStorage.removeItem("connected_wallet");
@@ -393,8 +412,13 @@ export const WalletProvider = ({ children }) => {
     localStorage.removeItem("connected_wallet_address");
   };
 
+  // Resolve properties dynamically depending on the active blockchain
+  const isConnected = isBase ? isEvmConnected : isCardanoConnected;
+  const walletAddress = isBase ? evmAddress : cardanoAddress;
+  const balance = isBase ? evmBalance : adaBalance;
+
   const expectedNetworkId = activeNetwork === "mainnet" ? 1 : 0;
-  const isWalletNetworkCorrect = !isConnected || walletNetworkId === null || walletNetworkId === expectedNetworkId;
+  const isWalletNetworkCorrect = isBase ? true : (!isConnected || walletNetworkId === null || walletNetworkId === expectedNetworkId);
 
   return (
     <WalletContext.Provider
@@ -402,10 +426,10 @@ export const WalletProvider = ({ children }) => {
         isConnected,
         isConnecting,
         connectingWallet,
-        connectedWallet,
+        connectedWallet: isBase ? (isEvmConnected ? "MetaMask" : null) : connectedWallet,
         connectedWalletId,
         walletAddress,
-        adaBalance,
+        adaBalance: balance, // keep naming consistent for dashboard
         meshWallet,
         walletNetworkId,
         isWalletNetworkCorrect,

@@ -2,11 +2,13 @@
 
 import React from "react";
 import { useWallet } from "@/context/WalletContext";
+import { useBlockchain } from "@/context/BlockchainContext";
 import { X, Wallet, ArrowRight, Loader2, Check, Sparkles, Terminal } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export const WalletModal = ({ isOpen, onClose }) => {
   const { connectWallet, isConnecting, connectingWallet, connectedWallet } = useWallet();
+  const { currentBlockchain, isCardano, isBase } = useBlockchain();
 
   const [installedWallets, setInstalledWallets] = React.useState([]);
   const [isMobile, setIsMobile] = React.useState(false);
@@ -20,10 +22,55 @@ export const WalletModal = ({ isOpen, onClose }) => {
   React.useEffect(() => {
     if (typeof window !== "undefined") {
       const detectWallets = () => {
+        if (isBase) {
+          setInstalledWallets([
+            {
+              id: "metaMask",
+              name: "MetaMask",
+              desc: "Most Popular EVM Wallet",
+              color: "from-orange-500/10 to-amber-500/5",
+              borderColor: "hover:border-orange-500/30",
+              glowColor: "group-hover:shadow-orange-500/10",
+              logoText: "🦊",
+              logoColor: "text-orange-400 bg-orange-500/15"
+            },
+            {
+              id: "coinbaseWallet",
+              name: "Coinbase Wallet",
+              desc: "Coinbase Smart Browser Core",
+              color: "from-blue-500/10 to-indigo-500/5",
+              borderColor: "hover:border-blue-500/30",
+              glowColor: "group-hover:shadow-blue-500/10",
+              logoText: "🛡️",
+              logoColor: "text-blue-400 bg-blue-500/15"
+            },
+            {
+              id: "rainbow",
+              name: "Rainbow",
+              desc: "Fun & beautiful EVM gateway",
+              color: "from-pink-500/10 to-purple-500/5",
+              borderColor: "hover:border-pink-500/30",
+              glowColor: "group-hover:shadow-pink-500/10",
+              logoText: "🌈",
+              logoColor: "text-pink-400 bg-pink-500/15"
+            },
+            {
+              id: "walletconnect",
+              name: "WalletConnect",
+              desc: "Scan and connect mobile EVM wallets",
+              color: "from-sky-500/10 to-blue-500/5",
+              borderColor: "hover:border-sky-500/30",
+              glowColor: "group-hover:shadow-sky-500/10",
+              logoText: "WC",
+              logoColor: "text-sky-400 bg-sky-500/15"
+            }
+          ]);
+          return;
+        }
+
         import("@meshsdk/core").then(({ BrowserWallet }) => {
           const wallets = BrowserWallet.getInstalledWallets() || [];
           
-          // Ensure that if window.cardano has yoroi/lace/eternl/nami injected but it wasn't listed, we manually discover it
           if (window.cardano) {
             const knownIds = ["lace", "eternl", "nami", "yoroi"];
             knownIds.forEach(id => {
@@ -37,7 +84,6 @@ export const WalletModal = ({ isOpen, onClose }) => {
               }
             });
           }
-          // Offer WalletConnect only to mobile users (desktop users have browser extensions automatically detected)
           const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
           if (isMobileDevice) {
             if (!wallets.some(w => w.id === "walletconnect" || w.name.toLowerCase() === "walletconnect")) {
@@ -121,10 +167,8 @@ export const WalletModal = ({ isOpen, onClose }) => {
         });
       };
 
-      // Run immediately
       detectWallets();
 
-      // Check again after short delays to catch asynchronously injected extensions
       const timer1 = setTimeout(detectWallets, 300);
       const timer2 = setTimeout(detectWallets, 800);
       const timer3 = setTimeout(detectWallets, 1500);
@@ -198,7 +242,7 @@ export const WalletModal = ({ isOpen, onClose }) => {
                 </div>
                 <div>
                   <h3 className="font-extrabold text-sm text-white uppercase tracking-wider flex items-center gap-1.5">
-                    Connect Cardano Wallet <Sparkles className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+                    Connect {isCardano ? "Cardano" : "Base"} Wallet <Sparkles className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
                   </h3>
                   <p className="text-[10px] text-gray-500 font-semibold tracking-wider uppercase mt-1">Select a cryptonode to interface ledger</p>
                 </div>
@@ -217,12 +261,12 @@ export const WalletModal = ({ isOpen, onClose }) => {
                 <div className="p-5 rounded-2xl border border-dashed border-white/10 text-center bg-[#030308]/40 space-y-3">
                   <Terminal className="w-6 h-6 text-gray-600 mx-auto" />
                   <p className="text-xs text-gray-400 font-semibold leading-relaxed">
-                    No Cardano browser wallets detected. Please install Lacey, Eternl, or Yoroi, or open this platform inside a mobile Web3 browser.
+                    No {isCardano ? "Cardano" : "Base"} browser wallets detected. Please install standard extension or open this platform inside a mobile Web3 browser.
                   </p>
                   <div className="p-3 rounded-xl bg-cyan-500/5 border border-cyan-500/10 text-left">
                     <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider block">📱 Mobile Connection Tip</span>
                     <span className="text-[10px] text-gray-400 leading-normal block mt-1 font-semibold">
-                      To connect on iOS or Android, please open this website inside the built-in dApp browser of your Yoroi or Lace mobile application.
+                      To connect on iOS or Android, please open this website inside the built-in dApp browser of your Web3 mobile application.
                     </span>
                   </div>
                 </div>

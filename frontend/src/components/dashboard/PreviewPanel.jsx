@@ -2,15 +2,15 @@
 
 import React, { useState } from "react";
 import { useWallet } from "@/context/WalletContext";
+import { useBlockchain } from "@/context/BlockchainContext";
+import { useConfig } from "wagmi";
+import { ChainFactory } from "@/adapters/ChainFactory";
 import { ArrowDownUp, CheckCircle, Clock, Info, ShieldCheck, Sparkles, ExternalLink, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-import { BrowserWallet, Transaction } from "@meshsdk/core";
+import { BrowserWallet } from "@meshsdk/core";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000";
-
-const getExplorerTxUrl = (hash) => `https://preprod.cardanoscan.io/transaction/${hash}`;
-
 
 export const PreviewPanel = ({
   currentTx,
@@ -19,6 +19,8 @@ export const PreviewPanel = ({
   messagesCount,
 }) => {
   const { isConnected, connectedWallet, connectedWalletId, adaBalance, meshWallet, refreshBalance } = useWallet();
+  const { currentBlockchain, isCardano } = useBlockchain();
+  const config = useConfig();
   const [txState, setTxState] = useState("idle");
   const [txHash, setTxHash] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
@@ -26,7 +28,7 @@ export const PreviewPanel = ({
   const handleExecute = async () => {
     if (!currentTx) return;
     
-    if (!meshWallet && !connectedWallet) {
+    if (isCardano && !meshWallet && !connectedWallet) {
       console.error("No active Mesh wallet instance found.");
       setErrorMessage("No active Lace/Mesh wallet instance was found.");
       setTxState("error");
@@ -37,50 +39,60 @@ export const PreviewPanel = ({
     setErrorMessage(null);
     
     try {
-      if (currentTx.type !== "transfer") {
-        throw new Error("This MVP can preview swaps/schedules, but only ADA transfers execute on-chain.");
-      }
-
       if (currentTx.errors?.length) {
         throw new Error(currentTx.errors.join(" "));
       }
 
-      const activeWallet = connectedWallet
-        ? await BrowserWallet.enable(connectedWalletId || connectedWallet.toLowerCase())
-        : meshWallet;
+      const adapter = ChainFactory.get(currentBlockchain);
+      let hash = "";
 
-      if (!activeWallet) {
-        throw new Error("Wallet session is not active. Reconnect Lace and try again.");
+      if (currentBlockchain === "base") {
+        hash = await adapter.transfer(config, {
+          amount: currentTx.amount,
+          recipientAddress: currentTx.recipientAddress,
+          tokenAddress: currentTx.tokenAddress,
+        });
+      } else {
+        const activeWallet = connectedWallet
+          ? await BrowserWallet.enable(connectedWalletId || connectedWallet.toLowerCase())
+          : meshWallet;
+
+        if (!activeWallet) {
+          throw new Error("Wallet session is not active. Reconnect Lace and try again.");
+        }
+
+        hash = await adapter.transfer(activeWallet, {
+          amount: currentTx.amount,
+          recipientAddress: currentTx.recipientAddress,
+        });
       }
-
-      const tx = new Transaction({ initiator: activeWallet });
-      
-      const lovelaceAmount = Math.floor(currentTx.amount * 1000000).toString();
-      tx.sendLovelace(currentTx.recipientAddress, lovelaceAmount);
-      
-      const unsignedTx = await tx.build();
-      const signedTx = await activeWallet.signTx(unsignedTx);
-      const hash = await activeWallet.submitTx(signedTx);
 
       await fetch(`${API_BASE_URL}/api/transaction/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ txHash: hash })
+        body: JSON.stringify({ txHash: hash, blockchain: currentBlockchain })
       }).catch(() => undefined);
 
-      await refreshBalance(activeWallet);
+      if (isCardano) {
+        const activeWallet = connectedWallet
+          ? await BrowserWallet.enable(connectedWalletId || connectedWallet.toLowerCase())
+          : meshWallet;
+        await refreshBalance(activeWallet);
+      } else {
+        await refreshBalance();
+      }
       
       setTxHash(hash);
       setTxState("success");
       onTxSuccess?.({
         txHash: hash,
-        explorerUrl: getExplorerTxUrl(hash),
+        explorerUrl: adapter.getExplorerTxUrl(hash, currentTx.network === "mainnet"),
         submittedAt: new Date(),
       });
       
     } catch (err) {
-      console.error("Cardano transaction execution failed:", err);
-      const message = err?.message || "Wallet rejected signing or Cardano submission failed.";
+      console.error("Transaction execution failed:", err);
+      const message = err?.message || "Wallet rejected signing or submission failed.";
       setErrorMessage(message);
       setTxState("error");
       onTxFailure?.(message);

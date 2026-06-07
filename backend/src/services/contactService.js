@@ -1,127 +1,166 @@
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
+/**
+ * contactService.js
+ *
+ * MongoDB-backed contact store.
+ * Each contact is scoped to a walletAddress (the owner's wallet).
+ *
+ * Supports both Cardano (addr_test1.../addr1...) and Base (0x...) addresses.
+ */
+
 import { bech32 } from "bech32";
+import Contact from "../models/Contact.js";
+import { isDBConnected } from "../config/db.js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const DATA_DIR = path.join(__dirname, "../../data");
-const CONTACTS_DB = path.join(DATA_DIR, "contacts.json");
-
-const ensureDatabase = () => {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-
-  if (!fs.existsSync(CONTACTS_DB)) {
-    fs.writeFileSync(CONTACTS_DB, JSON.stringify({ contacts: [] }, null, 2));
-  }
-};
-
-const readDatabase = () => {
-  ensureDatabase();
-  try {
-    const raw = fs.readFileSync(CONTACTS_DB, "utf8");
-    const data = JSON.parse(raw);
-    return Array.isArray(data.contacts) ? data.contacts : [];
-  } catch (error) {
-    console.error("[ContactService] Failed to read contacts database:", error);
-    return [];
-  }
-};
-
-const writeDatabase = (contacts) => {
-  ensureDatabase();
-  fs.writeFileSync(CONTACTS_DB, JSON.stringify({ contacts }, null, 2));
-};
+// ── Address validation ────────────────────────────────────────────────────────
 
 const normalizeAddress = (address = "") => String(address).trim().toLowerCase();
 
 export const isValidCardanoAddress = (address = "") => {
-  const normalized = normalizeAddress(address);
-  if (!normalized.startsWith("addr_test1") && !normalized.startsWith("addr1")) {
-    return false;
-  }
-
+  const norm = normalizeAddress(address);
+  if (!norm.startsWith("addr_test1") && !norm.startsWith("addr1")) return false;
   try {
-    const decoded = bech32.decode(normalized, 1000);
+    const decoded = bech32.decode(norm, 1000);
     return decoded.prefix === "addr_test" || decoded.prefix === "addr";
   } catch {
     return false;
   }
 };
 
-export const getAllContacts = () =>
-  readDatabase().filter((contact) => isValidCardanoAddress(contact.address));
+export const isValidBaseAddress = (address = "") =>
+  /^0x[0-9a-fA-F]{40}$/.test(address.trim());
 
-export const resolveContactByName = (name) => {
-  if (!name) return null;
+const isValidAddress = (address) =>
+  isValidCardanoAddress(address) || isValidBaseAddress(address);
 
-  const contacts = getAllContacts();
-  const query = name.trim().toLowerCase();
+// ── CRUD operations ──────────────────────────────────────────────────────────
 
-  const exact = contacts.find(c => c.name.toLowerCase() === query);
-  if (exact) return exact;
-
-  const partial = contacts.find(c => c.name.toLowerCase().startsWith(query));
-  if (partial) return partial;
-
-  return contacts.find(c => c.name.toLowerCase().includes(query)) || null;
+/**
+ * Get all contacts for a wallet.
+ * Falls back gracefully if DB is not connected (returns []).
+ */
+export const getAllContacts = async (walletAddress) => {
+  if (!isDBConnected()) return [];
+  const docs = await Contact.find({
+    walletAddress: normalizeAddress(walletAddress || "anonymous"),
+  }).sort({ createdAt: -1 });
+  // Return plain objects shaped like the old JSON format
+  return docs.map((d) => ({
+    id: d._id.toString(),
+    name: d.name,
+    address: d.address,
+    isFavorite: d.isFavorite,
+    avatarColor: d.avatarColor,
+    createdAt: d.createdAt,
+  }));
 };
 
-export const getContactById = (id) =>
-  getAllContacts().find(c => c.id === id) || null;
+/**
+ * Resolve a contact by name (exact → prefix → partial match).
+ */
+export const resolveContactByName = async (name, walletAddress) => {
+  if (!name || !isDBConnected()) return null;
+  const contacts = await getAllContacts(walletAddress);
+  const query = name.trim().toLowerCase();
+  return (
+    contacts.find((c) => c.name.toLowerCase() === query) ||
+    contacts.find((c) => c.name.toLowerCase().startsWith(query)) ||
+    contacts.find((c) => c.name.toLowerCase().includes(query)) ||
+    null
+  );
+};
 
-export const addContact = (name, address, isFavorite = false) => {
-  if (!name || !address) {
-    throw new Error("Name and address are required.");
-  }
+/**
+ * Add a new contact for a wallet.
+ */
+export const addContact = async (name, address, walletAddress, isFavorite = false) => {
+  if (!name || !address) throw new Error("Name and address are required.");
 
   const normalizedName = name.trim();
   const normalizedAddress = normalizeAddress(address);
+  const ownerWallet = normalizeAddress(walletAddress || "anonymous");
 
-  if (!isValidCardanoAddress(normalizedAddress)) {
-    throw new Error("Invalid Cardano address. Save a real addr_test1... preprod/testnet or addr1... mainnet address.");
+  if (!isValidAddress(normalizedAddress)) {
+    throw new Error(
+      "Invalid address. Please provide a valid Cardano (addr1.../addr_test1...) or Base (0x...) address."
+    );
   }
 
-  const contacts = readDatabase();
-  const duplicateName = contacts.find(c => c.name.toLowerCase() === normalizedName.toLowerCase());
-  if (duplicateName) {
-    throw new Error(`A contact named "${normalizedName}" already exists.`);
+  if (!isDBConnected()) {
+    // Offline fallback: return a temporary contact (won't be persisted)
+    return {
+      id: `c-${Date.now()}`,
+      name: normalizedName,
+      address: normalizedAddress,
+      isFavorite,
+      avatarColor: "bg-pink-500/20 text-pink-400",
+      createdAt: new Date().toISOString(),
+    };
   }
 
-  const duplicateAddress = contacts.find(c => normalizeAddress(c.address) === normalizedAddress);
-  if (duplicateAddress) {
-    throw new Error(`This address is already saved for "${duplicateAddress.name}".`);
+  // Check for duplicates
+  const existing = await Contact.findOne({
+    walletAddress: ownerWallet,
+    $or: [
+      { name: { $regex: new RegExp(`^${normalizedName}$`, "i") } },
+      { address: normalizedAddress },
+    ],
+  });
+
+  if (existing) {
+    if (existing.name.toLowerCase() === normalizedName.toLowerCase()) {
+      throw new Error(`A contact named "${normalizedName}" already exists.`);
+    }
+    throw new Error(`This address is already saved for "${existing.name}".`);
   }
 
-  const newContact = {
-    id: `c-${Date.now()}`,
+  const doc = await Contact.create({
+    walletAddress: ownerWallet,
     name: normalizedName,
     address: normalizedAddress,
     isFavorite,
     avatarColor: "bg-pink-500/20 text-pink-400",
-    createdAt: new Date().toISOString()
+  });
+
+  return {
+    id: doc._id.toString(),
+    name: doc.name,
+    address: doc.address,
+    isFavorite: doc.isFavorite,
+    avatarColor: doc.avatarColor,
+    createdAt: doc.createdAt,
   };
-
-  writeDatabase([newContact, ...contacts]);
-  return newContact;
 };
 
-export const removeContact = (id) => {
-  const contacts = readDatabase();
-  const nextContacts = contacts.filter(c => c.id !== id);
-  if (nextContacts.length === contacts.length) return false;
-  writeDatabase(nextContacts);
-  return true;
+/**
+ * Remove a contact by its ID.
+ */
+export const removeContact = async (id, walletAddress) => {
+  if (!isDBConnected()) return false;
+  const result = await Contact.deleteOne({
+    _id: id,
+    walletAddress: normalizeAddress(walletAddress || "anonymous"),
+  });
+  return result.deletedCount > 0;
 };
 
-export const toggleFavorite = (id) => {
-  const contacts = readDatabase();
-  const contact = contacts.find(c => c.id === id);
-  if (!contact) return null;
-
-  contact.isFavorite = !contact.isFavorite;
-  writeDatabase(contacts);
-  return contact;
+/**
+ * Toggle the isFavorite flag on a contact.
+ */
+export const toggleFavorite = async (id, walletAddress) => {
+  if (!isDBConnected()) return null;
+  const doc = await Contact.findOne({
+    _id: id,
+    walletAddress: normalizeAddress(walletAddress || "anonymous"),
+  });
+  if (!doc) return null;
+  doc.isFavorite = !doc.isFavorite;
+  await doc.save();
+  return {
+    id: doc._id.toString(),
+    name: doc.name,
+    address: doc.address,
+    isFavorite: doc.isFavorite,
+    avatarColor: doc.avatarColor,
+    createdAt: doc.createdAt,
+  };
 };

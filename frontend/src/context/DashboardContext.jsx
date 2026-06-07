@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from "react";
 import { useWallet } from "@/context/WalletContext";
 import { useNetwork } from "@/context/NetworkContext";
+import { useBlockchain } from "@/context/BlockchainContext";
 import { useRouter } from "next/navigation";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000";
@@ -89,9 +90,11 @@ const DashboardContext = createContext(undefined);
 export const DashboardProvider = ({ children }) => {
   const { isConnected, connectedWallet, walletAddress, disconnectWallet, adaBalance } = useWallet();
   const { activeNetwork, explorerUrl } = useNetwork();
+  const { currentBlockchain, isCardano } = useBlockchain();
   const router = useRouter();
   const walletToastRef = useRef(null);
   const currentNetworkRef = useRef(activeNetwork);
+  const currentBlockchainRef = useRef(currentBlockchain);
 
   // ── Chat Session State ───────────────────────────────────────────────────────
   const [chatSessions, setChatSessions]   = useState([]);
@@ -117,13 +120,15 @@ export const DashboardProvider = ({ children }) => {
   // ── Network-aware atomic bootstrap and switch mechanism ──────────────────
   useEffect(() => {
     const net = activeNetwork;
-    console.log(`[DashboardContext] Dynamic network load triggered for: ${net}`);
+    const chain = currentBlockchain;
+    const addr = walletAddress || "anonymous";
+    console.log(`[DashboardContext] Dynamic network load triggered for: ${chain}:${net} for wallet: ${addr}`);
     
-    // Load per-network transactions
+    // Load per-network/chain transactions
     let parsedTx = [];
     if (typeof window !== "undefined") {
       try {
-        const savedTx = localStorage.getItem(`tx_history_${net}`);
+        const savedTx = localStorage.getItem(`${chain}_tx_history_${net}`);
         parsedTx = savedTx ? JSON.parse(savedTx) : [];
       } catch (e) {
         console.warn("Failed to load tx history:", e);
@@ -131,14 +136,14 @@ export const DashboardProvider = ({ children }) => {
     }
     setPastTransactions(parsedTx);
 
-    // Load per-network chat sessions
+    // Load per-network/chain chat sessions
     let parsedSessions = [];
     let savedActiveId = null;
     if (typeof window !== "undefined") {
       try {
-        const savedSessions = localStorage.getItem(`ada_chat_sessions_${net}`);
+        const savedSessions = localStorage.getItem(`${chain}_chat_sessions_${net}`);
         parsedSessions = savedSessions ? JSON.parse(savedSessions) : [];
-        savedActiveId = localStorage.getItem(`ada_active_session_${net}`);
+        savedActiveId = localStorage.getItem(`${chain}_active_session_${net}`);
       } catch (e) {
         console.warn("Failed to load sessions:", e);
       }
@@ -154,10 +159,81 @@ export const DashboardProvider = ({ children }) => {
       setActiveChatId(fresh.id);
     }
 
+    // Async sync with MongoDB backend
+    const fetchBackendData = async () => {
+      try {
+        const headers = {
+          "X-Wallet-Address": addr,
+          "X-Blockchain": chain,
+          "X-Cardano-Network": net
+        };
+
+        // 1. Fetch Sessions
+        const sessRes = await fetch(`${API_BASE_URL}/api/sessions`, { headers });
+        if (sessRes.ok) {
+          const sessData = await sessRes.json();
+          if (sessData.success && Array.isArray(sessData.sessions)) {
+            const dbSessions = sessData.sessions;
+            if (dbSessions.length > 0) {
+              setChatSessions(dbSessions);
+              const exists = dbSessions.find(s => s.id === savedActiveId);
+              setActiveChatId(exists ? savedActiveId : dbSessions[0].id);
+              localStorage.setItem(`${chain}_chat_sessions_${net}`, JSON.stringify(dbSessions));
+            } else {
+              // If backend is empty but localStorage has sessions, sync local sessions to backend
+              if (parsedSessions.length > 0) {
+                console.log(`[Sync] Syncing ${parsedSessions.length} local sessions to backend...`);
+                for (const sess of parsedSessions) {
+                  await fetch(`${API_BASE_URL}/api/sessions`, {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      ...headers
+                    },
+                    body: JSON.stringify({ session: sess })
+                  }).catch(() => undefined);
+                }
+              }
+            }
+          }
+        }
+
+        // 2. Fetch Tx History
+        const txRes = await fetch(`${API_BASE_URL}/api/txhistory`, { headers });
+        if (txRes.ok) {
+          const txData = await txRes.json();
+          if (txData.success && Array.isArray(txData.records)) {
+            const dbTx = txData.records;
+            setPastTransactions(dbTx);
+            localStorage.setItem(`${chain}_tx_history_${net}`, JSON.stringify(dbTx));
+          } else {
+            // Sync local tx history to backend if backend is empty
+            if (parsedTx.length > 0) {
+              console.log(`[Sync] Syncing ${parsedTx.length} local txs to backend...`);
+              for (const record of parsedTx) {
+                await fetch(`${API_BASE_URL}/api/txhistory`, {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    ...headers
+                  },
+                  body: JSON.stringify({ record })
+                }).catch(() => undefined);
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("[DashboardContext] Failed to fetch data from backend, falling back to local:", err.message);
+      }
+    };
+
+    fetchBackendData();
+
     // Load transaction states
     if (typeof window !== "undefined") {
       try {
-        const stored = JSON.parse(localStorage.getItem(`ada_transaction_states_${net}`) || "{}");
+        const stored = JSON.parse(localStorage.getItem(`${chain}_transaction_states_${net}`) || "{}");
         let changed = false;
         Object.keys(stored).forEach(txId => {
           if (stored[txId].status === "signing" || stored[txId].status === "approved") {
@@ -166,19 +242,19 @@ export const DashboardProvider = ({ children }) => {
           }
         });
         if (changed) {
-          localStorage.setItem(`ada_transaction_states_${net}`, JSON.stringify(stored));
+          localStorage.setItem(`${chain}_transaction_states_${net}`, JSON.stringify(stored));
         }
         setTransactionStates(stored);
-        console.log(`[TX System] Restored transaction states for ${net}:`, stored);
+        console.log(`[TX System] Restored transaction states for ${chain}:${net}:`, stored);
       } catch (err) {
         console.error("[TX System] Error parsing transaction states:", err);
         setTransactionStates({});
       }
     }
 
-    // Finally lock in the active network reference to permit saves
     currentNetworkRef.current = net;
-  }, [activeNetwork]);
+    currentBlockchainRef.current = chain;
+  }, [activeNetwork, currentBlockchain, walletAddress]);
 
   const updateTxState = useCallback((txId, stateUpdates) => {
     if (!txId) return;
@@ -187,39 +263,44 @@ export const DashboardProvider = ({ children }) => {
       const nextState = { ...current, ...stateUpdates };
       const nextAll = { ...prev, [txId]: nextState };
       if (typeof window !== "undefined") {
-        localStorage.setItem(`ada_transaction_states_${activeNetwork}`, JSON.stringify(nextAll));
+        localStorage.setItem(`${currentBlockchain}_transaction_states_${activeNetwork}`, JSON.stringify(nextAll));
       }
       console.log(`[TX System] Updating transaction ${txId} state to:`, stateUpdates);
       return nextAll;
     });
-  }, [activeNetwork]);
+  }, [activeNetwork, currentBlockchain]);
 
   // ── Sync states back to localStorage atomic strictly for active network ───
   useEffect(() => {
-    if (typeof window !== "undefined" && currentNetworkRef.current === activeNetwork) {
-      localStorage.setItem(`tx_history_${activeNetwork}`, JSON.stringify(pastTransactions));
+    if (typeof window !== "undefined" && currentNetworkRef.current === activeNetwork && currentBlockchainRef.current === currentBlockchain) {
+      localStorage.setItem(`${currentBlockchain}_tx_history_${activeNetwork}`, JSON.stringify(pastTransactions));
     }
-  }, [pastTransactions, activeNetwork]);
+  }, [pastTransactions, activeNetwork, currentBlockchain]);
 
   useEffect(() => {
-    if (typeof window !== "undefined" && chatSessions.length > 0 && currentNetworkRef.current === activeNetwork) {
-      localStorage.setItem(`ada_chat_sessions_${activeNetwork}`, JSON.stringify(chatSessions));
+    if (typeof window !== "undefined" && chatSessions.length > 0 && currentNetworkRef.current === activeNetwork && currentBlockchainRef.current === currentBlockchain) {
+      localStorage.setItem(`${currentBlockchain}_chat_sessions_${activeNetwork}`, JSON.stringify(chatSessions));
     }
-  }, [chatSessions, activeNetwork]);
+  }, [chatSessions, activeNetwork, currentBlockchain]);
 
   useEffect(() => {
-    if (typeof window !== "undefined" && activeChatId && currentNetworkRef.current === activeNetwork) {
-      localStorage.setItem(`ada_active_session_${activeNetwork}`, activeChatId);
+    if (typeof window !== "undefined" && activeChatId && currentNetworkRef.current === activeNetwork && currentBlockchainRef.current === currentBlockchain) {
+      localStorage.setItem(`${currentBlockchain}_active_session_${activeNetwork}`, activeChatId);
     }
-  }, [activeChatId, activeNetwork]);
+  }, [activeChatId, activeNetwork, currentBlockchain]);
 
 
   useEffect(() => {
-    fetch(`${API_BASE_URL}/api/contacts`)
+    const addr = walletAddress || "anonymous";
+    fetch(`${API_BASE_URL}/api/contacts`, {
+      headers: {
+        "X-Wallet-Address": addr
+      }
+    })
       .then(readApiJson)
       .then(data => { if (data.success && Array.isArray(data.contacts)) setContacts(data.contacts); })
       .catch(() => undefined);
-  }, []);
+  }, [walletAddress]);
 
   useEffect(() => {
     if (isConnected && walletAddress && walletToastRef.current !== walletAddress) {
@@ -229,20 +310,51 @@ export const DashboardProvider = ({ children }) => {
     if (!isConnected) walletToastRef.current = null;
   }, [isConnected, walletAddress, connectedWallet]);
 
+  // Sync a single session to MongoDB Atlas backend
+  const syncSessionToBackend = useCallback(async (session) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Wallet-Address": walletAddress || "anonymous",
+          "X-Blockchain": currentBlockchain,
+          "X-Cardano-Network": activeNetwork
+        },
+        body: JSON.stringify({ session })
+      });
+      if (!response.ok) {
+        console.warn(`[Sync] Failed to sync session ${session.id} to backend`);
+      }
+    } catch (err) {
+      console.warn(`[Sync] Network error syncing session ${session.id}:`, err);
+    }
+  }, [walletAddress, currentBlockchain, activeNetwork]);
+
   // ── Session helpers ──────────────────────────────────────────────────────────
   const updateSessionMessages = useCallback((sessionId, updater) => {
-    setChatSessions(prev => prev.map(s => {
-      if (s.id !== sessionId) return s;
-      const newMessages = typeof updater === "function" ? updater(s.messages) : updater;
-      // Auto-title from first user message
-      let title = s.title;
-      if (title === "New Chat") {
-        const firstUser = newMessages.find(m => m.sender === "user");
-        if (firstUser) title = firstUser.text.substring(0, 42) + (firstUser.text.length > 42 ? "…" : "");
+    setChatSessions(prev => {
+      let targetSession = null;
+      const updated = prev.map(s => {
+        if (s.id !== sessionId) return s;
+        const newMessages = typeof updater === "function" ? updater(s.messages) : updater;
+        // Auto-title from first user message
+        let title = s.title;
+        if (title === "New Chat") {
+          const firstUser = newMessages.find(m => m.sender === "user");
+          if (firstUser) title = firstUser.text.substring(0, 42) + (firstUser.text.length > 42 ? "…" : "");
+        }
+        targetSession = { ...s, messages: newMessages, title, updatedAt: new Date().toISOString() };
+        return targetSession;
+      });
+
+      if (targetSession) {
+        setTimeout(() => syncSessionToBackend(targetSession), 0);
       }
-      return { ...s, messages: newMessages, title, updatedAt: new Date().toISOString() };
-    }));
-  }, []);
+
+      return updated;
+    });
+  }, [syncSessionToBackend]);
 
   const handleNewChat = useCallback(() => {
     const fresh = createNewSession();
@@ -250,7 +362,8 @@ export const DashboardProvider = ({ children }) => {
     setActiveChatId(fresh.id);
     setCurrentTx(null);
     router.push("/chat");
-  }, [router]);
+    setTimeout(() => syncSessionToBackend(fresh), 0);
+  }, [router, syncSessionToBackend]);
 
   const handleSwitchChat = useCallback((sessionId) => {
     setActiveChatId(sessionId);
@@ -267,12 +380,20 @@ export const DashboardProvider = ({ children }) => {
         } else {
           const fresh = createNewSession();
           setActiveChatId(fresh.id);
+          setTimeout(() => syncSessionToBackend(fresh), 0);
           return [fresh];
         }
       }
       return filtered;
     });
-  }, [activeChatId]);
+
+    fetch(`${API_BASE_URL}/api/sessions/${sessionId}`, {
+      method: "DELETE",
+      headers: {
+        "X-Wallet-Address": walletAddress || "anonymous"
+      }
+    }).catch(err => console.warn(`[Sync] Failed to delete session ${sessionId} on backend:`, err));
+  }, [activeChatId, walletAddress, syncSessionToBackend]);
 
   // Inject an AI message into the active session (used by ChatSection after tx)
   const handleAddAiMessage = useCallback((text) => {
@@ -299,7 +420,14 @@ export const DashboardProvider = ({ children }) => {
 
   // ── Contacts ─────────────────────────────────────────────────────────────────
   const handleAddContact = async (name, address) => {
-    const response = await fetch(`${API_BASE_URL}/api/contacts`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, address }) });
+    const response = await fetch(`${API_BASE_URL}/api/contacts`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Wallet-Address": walletAddress || "anonymous"
+      },
+      body: JSON.stringify({ name, address })
+    });
     const data = await readApiJson(response);
     if (!response.ok || !data.success || !data.contact) throw new Error(data.error || "Failed to save contact.");
     setContacts(prev => [data.contact, ...prev]);
@@ -308,12 +436,22 @@ export const DashboardProvider = ({ children }) => {
   const handleRemoveContact = (id) => {
     const contact = contacts.find(c => c.id === id);
     setContacts(prev => prev.filter(c => c.id !== id));
-    fetch(`${API_BASE_URL}/api/contacts/${id}`, { method: "DELETE" }).catch(() => undefined);
+    fetch(`${API_BASE_URL}/api/contacts/${id}`, {
+      method: "DELETE",
+      headers: {
+        "X-Wallet-Address": walletAddress || "anonymous"
+      }
+    }).catch(() => undefined);
     if (contact) notify({ title: "Contact Removed", message: `Deleted ${contact.name}.`, type: "info" });
   };
   const handleToggleFavorite = (id) => {
     setContacts(prev => prev.map(c => c.id === id ? { ...c, isFavorite: !c.isFavorite } : c));
-    fetch(`${API_BASE_URL}/api/contacts/${id}/favorite`, { method: "PATCH" }).catch(() => undefined);
+    fetch(`${API_BASE_URL}/api/contacts/${id}/favorite`, {
+      method: "PATCH",
+      headers: {
+        "X-Wallet-Address": walletAddress || "anonymous"
+      }
+    }).catch(() => undefined);
   };
 
   // ── Navigation helpers ───────────────────────────────────────────────────────
@@ -345,6 +483,19 @@ export const DashboardProvider = ({ children }) => {
         confidence: currentTx.confidence ?? null,
       };
       setPastTransactions(prev => [record, ...prev]);
+
+      // Sync to backend
+      fetch(`${API_BASE_URL}/api/txhistory`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Wallet-Address": walletAddress || "anonymous",
+          "X-Blockchain": currentBlockchain,
+          "X-Cardano-Network": activeNetwork
+        },
+        body: JSON.stringify({ record })
+      }).catch(err => console.warn("[Sync] Failed to sync new transaction to backend:", err));
+
       const notifyMessage = isSwap
         ? `Swapped ${currentTx.amount} ${currentTx.assetName} to ${currentTx.swapToAsset}${txHash ? ` | ${txHash.slice(0, 10)}...` : ""}`
         : `Sent ${currentTx.amount} ${currentTx.assetName || "ADA"}${txHash ? ` | ${txHash.slice(0, 10)}...` : ""}`;
@@ -434,13 +585,15 @@ export const DashboardProvider = ({ children }) => {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "X-Cardano-Network": activeNetwork
+            "X-Cardano-Network": activeNetwork,
+            "X-Blockchain": currentBlockchain
           },
           body: JSON.stringify({
             prompt: text,
             senderAddress: walletAddress || undefined,
             balanceAda: adaBalance ?? undefined,
-            network: activeNetwork
+            network: activeNetwork,
+            blockchain: currentBlockchain
           })
         });
 
@@ -493,11 +646,13 @@ export const DashboardProvider = ({ children }) => {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "X-Cardano-Network": activeNetwork
+            "X-Cardano-Network": activeNetwork,
+            "X-Blockchain": currentBlockchain
           },
           body: JSON.stringify({
             prompt: text,
-            network: activeNetwork
+            network: activeNetwork,
+            blockchain: currentBlockchain
           })
         });
 
@@ -507,13 +662,19 @@ export const DashboardProvider = ({ children }) => {
         updateSessionMessages(currentSessionId, prev => [...prev, aiMsg]);
       } catch (err) {
         console.warn("Chat endpoint unreachable, using local fallback:", err.message);
-        let responseText = "I'm your ADA Intent AI assistant. Try asking me to send, swap, or stake ADA!";
+        let responseText = isCardano
+          ? "I'm your ADA Intent AI assistant. Try asking me to send, swap, or stake ADA!"
+          : "I'm your Base Intent AI assistant. Try asking me to send or swap ETH/ERC20 assets on Base!";
         if (textLower.includes("hi") || textLower.includes("hello") || textLower.includes("hey")) responseText = "Hey 👋 How can I help you today?";
-        else if (textLower.includes("how are you")) responseText = "I'm doing great — ready to help with your Cardano transactions. What would you like to do?";
-        else if (textLower.includes("what can you do") || textLower.includes("help")) responseText = "I can help you:\n• 💸 Send ADA to contacts or addresses\n• 🔄 Swap tokens (ADA → USDM, DJED, MIN, HOSKY, AGIX, WMT and more!)\n• 🏦 Stake ADA for passive rewards\n• 📋 View transaction history\n• ⚡ Set up recurring payments\n\nJust type a natural language command like \"Send 10 ADA to Brother\" or \"Swap 50 ADA to HOSKY\" to get started!";
+        else if (textLower.includes("how are you")) responseText = `I'm doing great — ready to help with your ${isCardano ? "Cardano" : "Base"} transactions. What would you like to do?`;
+        else if (textLower.includes("what can you do") || textLower.includes("help")) responseText = isCardano
+          ? "I can help you:\n• 💸 Send ADA to contacts or addresses\n• 🔄 Swap tokens (ADA → USDM, DJED, etc.)\n• 🏦 Stake ADA for passive rewards\n• 📋 View transaction history\n• ⚡ Set up recurring payments\n\nJust type a natural language command like \"Send 10 ADA to Brother\" or \"Swap 50 ADA to HOSKY\" to get started!"
+          : "I can help you:\n• 💸 Send ETH or ERC20 tokens to addresses\n• 🔄 Swap ERC20 tokens (ETH → USDC, etc.)\n• 📋 View Base transaction history\n\nJust type a natural language command like \"Send 0.05 ETH to 0x...\" or \"Swap 10 USDC to ETH\"!";
         else if (textLower.includes("thank")) responseText = "You're welcome! Let me know if you need anything else.";
-        else if (textLower.includes("balance") || textLower.includes("wallet")) responseText = isConnected ? `Your ${connectedWallet || "Cardano"} wallet is connected and ready. Check the wallet button in the top right for your balance.` : "You don't have a wallet connected yet. Click \"Connect Wallet\" in the top right to get started!";
-        else responseText = "I'm here to help! You can ask me to send ADA, swap tokens, or stake. Type something like \"Send 10 ADA to Brother\" or \"Swap 50 ADA to AGIX\" to see it in action.";
+        else if (textLower.includes("balance") || textLower.includes("wallet")) responseText = isConnected ? `Your wallet is connected and ready. Check the wallet button in the top right for your balance.` : "You don't have a wallet connected yet. Click \"Connect Wallet\" in the top right to get started!";
+        else responseText = isCardano
+          ? "I'm here to help! You can ask me to send ADA, swap tokens, or stake. Type something like \"Send 10 ADA to Brother\"."
+          : "I'm here to help! You can ask me to send or swap ETH/ERC20 tokens on Base. Type something like \"Send 0.1 ETH to 0x...\" or \"Swap 10 USDC to ETH\".";
         const aiMsg = { id: makeMsgId("ai"), sender: "ai", text: responseText, timestamp: new Date() };
         updateSessionMessages(currentSessionId, prev => [...prev, aiMsg]);
       } finally {

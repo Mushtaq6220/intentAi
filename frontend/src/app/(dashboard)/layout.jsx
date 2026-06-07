@@ -5,14 +5,16 @@ import { usePathname, useRouter } from "next/navigation";
 import { useWallet } from "@/context/WalletContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useNetwork } from "@/context/NetworkContext";
+import { useBlockchain } from "@/context/BlockchainContext";
 import { useDashboard } from "@/context/DashboardContext";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { NotificationCenter } from "@/components/dashboard/NotificationCenter";
 import { WalletModal } from "@/components/wallet/WalletModal";
 import { NetworkSwitcher } from "@/components/dashboard/NetworkSwitcher";
+import { BlockchainSwitcher } from "@/components/dashboard/BlockchainSwitcher";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Menu, Sun, Moon, Wallet,
+  Menu, Sun, Moon, Wallet, Loader2,
   X, ChevronDown, Copy, Check, LogOut, ExternalLink,
   CheckCircle2, AlertTriangle, Terminal, Sparkles
 } from "lucide-react";
@@ -28,6 +30,7 @@ export default function DashboardLayout({ children }) {
     notifications, handleMarkAllAsRead, handleClearAll, handleRemoveNotification,
     messages, toasts, dismissToast, notify,
   } = useDashboard();
+  const { currentBlockchain, isSwitching } = useBlockchain();
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);    // mobile drawer
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false); // desktop collapse
@@ -57,6 +60,30 @@ export default function DashboardLayout({ children }) {
       {/* Dynamic Animated Ambient Lighting Orbs */}
       <div className="absolute top-10 right-10 w-[550px] h-[550px] rounded-full bg-cyan-500/5 blur-[150px] pointer-events-none transition-all duration-700" />
       <div className="absolute bottom-10 left-10 w-[550px] h-[550px] rounded-full bg-purple-500/5 blur-[150px] pointer-events-none transition-all duration-700" />
+
+      {/* Ecosystem Transition Overlay */}
+      <AnimatePresence>
+        {isSwitching && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[999] flex flex-col items-center justify-center bg-[#07070d]/90 backdrop-blur-2xl text-white"
+          >
+            <div className="flex flex-col items-center gap-6 max-w-sm text-center px-4">
+              <Loader2 className={`w-12 h-12 text-${colors.accent}-400 animate-spin`} />
+              <div>
+                <h2 className="text-lg font-black uppercase tracking-widest">
+                  Switching Ecosystem
+                </h2>
+                <p className="text-xs text-gray-500 font-semibold tracking-wider uppercase mt-2">
+                  Reloading secure network vaults for {currentBlockchain === "cardano" ? "Base" : "Cardano"}...
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── Floating Sidebar (Desktop) ─────────────────────────────────── */}
       <Sidebar
@@ -153,6 +180,9 @@ export default function DashboardLayout({ children }) {
               onClearAll={handleClearAll}
               onRemoveNotification={handleRemoveNotification}
             />
+
+            {/* Blockchain switch protocol */}
+            <BlockchainSwitcher />
 
             {/* Network switch protocol */}
             <NetworkSwitcher />

@@ -5,6 +5,8 @@ import morgan from "morgan";
 import intentRoutes from "./routes/intentRoutes.js";
 import contactRoutes from "./routes/contactRoutes.js";
 import transactionRoutes from "./routes/transactionRoutes.js";
+import sessionRoutes from "./routes/sessionRoutes.js";
+import txHistoryRoutes from "./routes/txHistoryRoutes.js";
 
 const app = express();
 
@@ -18,7 +20,7 @@ app.use(morgan("dev"));
 app.use(cors({
   origin: ["http://localhost:3000", "http://127.0.0.1:3000"],
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Wallet-Address", "X-Blockchain", "X-Cardano-Network"],
   credentials: true
 }));
 
@@ -28,6 +30,8 @@ app.use(express.json());
 app.use("/api/intent", intentRoutes);
 app.use("/api/contacts", contactRoutes);
 app.use("/api/transaction", transactionRoutes);
+app.use("/api/sessions", sessionRoutes);
+app.use("/api/txhistory", txHistoryRoutes);
 
 // Root endpoint for browser testing
 app.get("/", (req, res) => {
