@@ -9,7 +9,7 @@ const estimateAdaFee = (transactionType = "transfer") => {
   return 0.19;
 };
 
-export const resolveIntentRecipient = (intent) => {
+export const resolveIntentRecipient = async (intent, walletAddress) => {
   if (intent.receiverAddress) {
     return {
       receiverName: intent.receiverName || "Raw Cardano address",
@@ -28,7 +28,7 @@ export const resolveIntentRecipient = (intent) => {
     };
   }
 
-  const contact = resolveContactByName(intent.receiverName);
+  const contact = await resolveContactByName(intent.receiverName, walletAddress);
   return {
     receiverName: contact?.name || intent.receiverName,
     receiverAddress: contact?.address || null,
@@ -37,8 +37,8 @@ export const resolveIntentRecipient = (intent) => {
   };
 };
 
-export const createTransactionPlan = ({ intent, rawPrompt = "", senderAddress, balanceAda, network }) => {
-  const recipient = resolveIntentRecipient(intent);
+export const createTransactionPlan = async ({ intent, rawPrompt = "", senderAddress, balanceAda, network }) => {
+  const recipient = await resolveIntentRecipient(intent, senderAddress);
   const estimatedFeeAda = estimateAdaFee(intent.transactionType);
   const executableType = intent.transactionType === "transfer" ? "transfer" : intent.transactionType;
   
@@ -48,10 +48,18 @@ export const createTransactionPlan = ({ intent, rawPrompt = "", senderAddress, b
   if (executableType === "staking" && !poolId && intent.poolTicker) {
     const ticker = intent.poolTicker.toUpperCase();
     if (isMainnet) {
-      if (ticker === "CSP") poolId = "pool1m03c58wepn42ngy7zpmmd76d9006c6xchd20l2256tmm0k37z22"; // Dummy/example for CSP
-      if (ticker === "AINF") poolId = "pool15fsvzyj23j53yew0qly2y4a460xedz9763nchhtj2ztsnv987y6";
+      if (ticker === "SANO") poolId = "pool1wnnxuqkftm7z593s0tsnfxtq9069zup9slyndxryj4wun5g5xwe";
+      if (ticker === "WAVE") poolId = "pool1pu5jlj4q9w9cjmllnmv4y0v6q96j22z3m33lq4c7v9j05t78044";
     } else {
-      poolId = "pool1wvsqznmcddtjlgx6z6235n2kly4xchpspsn5q3w6lyeqj6t8fud"; // Mesh default testnet pool
+      if (ticker === "CSP") poolId = "pool1wnnxuqkftm7z593s0tsnfxtq9069zup9slyndxryj4wun5g5xwe";
+      if (ticker === "AINF") poolId = "pool1pu5jlj4q9w9cjmllnmv4y0v6q96j22z3m33lq4c7v9j05t78044";
+      if (ticker === "OCEAN") poolId = "pool1lsvh87jnkstudnvgzsm7j9jnrdlhwvhddkxkjp2y59pmzsn38yy";
+      if (ticker === "NEBLA") poolId = "pool1z5uqdk7dzdxaae5633fqfcu2eqzy3a3rgqrl4daqk5p08lcz4a0";
+      if (ticker === "SMMT") poolId = "pool1y24nj4qdkg35nvvnfawukauggsxrxuy74876cplmxfymx7t3eg";
+      if (ticker === "AURORA") poolId = "pool12t3v2hxrpxynxpv6kqh54r3j6g7lz3g6lmqkqn2jy3qqyp0qt0";
+      
+      // Fallback
+      if (!poolId) poolId = "pool1wvsqznmcddtjlgx6z6235n2kly4xchpspsn5q3w6lyeqj6t8fud";
     }
   }
 

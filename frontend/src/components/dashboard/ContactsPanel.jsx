@@ -13,7 +13,7 @@ export const ContactsPanel = ({
   onToggleFavorite,
   onSendAda,
 }) => {
-  const [networkTab, setNetworkTab] = useState("mainnet");
+  const [networkTab, setNetworkTab] = useState("testnet");
   const [searchQuery, setSearchQuery] = useState("");
   const [isAdding, setIsAdding] = useState(false);
   const [newContactName, setNewContactName] = useState("");
@@ -168,22 +168,7 @@ export const ContactsPanel = ({
         )}
       </AnimatePresence>
 
-      {/* Search Input and Network Tabs */}
       <div className="space-y-4">
-        <div className="flex bg-white/5 border border-white/10 p-1 rounded-xl w-full sm:w-64">
-          <button
-            onClick={() => setNetworkTab("mainnet")}
-            className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all ${networkTab === "mainnet" ? "bg-cyan-500/20 text-cyan-400 shadow-sm" : "text-gray-400 hover:text-white"}`}
-          >
-            Mainnet
-          </button>
-          <button
-            onClick={() => setNetworkTab("testnet")}
-            className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all ${networkTab === "testnet" ? "bg-purple-500/20 text-purple-400 shadow-sm" : "text-gray-400 hover:text-white"}`}
-          >
-            Testnet
-          </button>
-        </div>
         <div className="relative">
           <Search className="absolute left-3.5 top-3.5 w-4 h-4 text-gray-500" />
           <input

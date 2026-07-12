@@ -96,7 +96,7 @@ export const parseIntent = async (text, blockchain = "cardano") => {
     const isBase = String(blockchain).toLowerCase() === "base";
     const systemPrompt = isBase ? BASE_SYSTEM_PROMPT : CARDANO_SYSTEM_PROMPT;
     
-    const rawResult = await queryAi(text, systemPrompt);
+    const rawResult = await queryAi(text, systemPrompt, blockchain);
     
     let cleanedResult = rawResult.trim();
     if (cleanedResult.startsWith("```")) {

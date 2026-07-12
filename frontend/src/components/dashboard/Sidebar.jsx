@@ -3,19 +3,12 @@
 import React, { useState } from "react";
 import { usePathname } from "next/navigation";
 import {
-  MessageSquare, History, Bot, TrendingUp, Users,
+  MessageSquare, History, TrendingUp, Users,
   ChevronLeft, ChevronRight, Plus, Trash2, MessageCircle, Sparkles, Terminal
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useDashboard } from "@/context/DashboardContext";
 import { useNetwork } from "@/context/NetworkContext";
-
-const NAV_ITEMS = [
-  { path: "/chat",     label: "Chat",               icon: MessageSquare },
-  { path: "/stake",    label: "Yield Validator",    icon: TrendingUp },
-  { path: "/contacts", label: "Address Book",       icon: Users },
-  { path: "/history",  label: "Transaction history", icon: History },
-];
 
 const formatSessionDate = (iso) => {
   if (!iso) return "";
@@ -35,6 +28,13 @@ export const Sidebar = ({ collapsed, onToggleCollapse, onNavigate, className = "
   const { colors } = useNetwork();
   const [hoveredSession, setHoveredSession] = useState(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+
+  const navItems = [
+    { path: "/chat",     label: "Chat",               icon: MessageSquare },
+    { path: "/stake",    label: "Yield Validator", icon: TrendingUp },
+    { path: "/contacts", label: "Address Book",       icon: Users },
+    { path: "/history",  label: "Transaction history", icon: History },
+  ];
 
   const onSessionClick = (sessionId) => {
     handleSwitchChat(sessionId);
@@ -103,7 +103,7 @@ export const Sidebar = ({ collapsed, onToggleCollapse, onNavigate, className = "
 
       {/* Main Navigation Nodes */}
       <nav className="px-4 py-2 space-y-1.5 shrink-0 relative z-10">
-        {NAV_ITEMS.map((item) => {
+        {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.path && item.path !== "/chat";
           const isChatActive = pathname === "/chat" && item.path === "/chat";

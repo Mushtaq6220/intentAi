@@ -1,15 +1,52 @@
 /**
  * contactService.js
  *
- * MongoDB-backed contact store.
+ * MongoDB-backed contact store with local file fallback when running in stateless mode.
  * Each contact is scoped to a walletAddress (the owner's wallet).
  *
- * Supports both Cardano (addr_test1.../addr1...) and Base (0x...) addresses.
+ * Supports Cardano (addr_test1.../addr1...) addresses.
  */
 
 import { bech32 } from "bech32";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import Contact from "../models/Contact.js";
 import { isDBConnected } from "../config/db.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const CONTACTS_FILE = path.join(__dirname, "..", "..", "data", "contacts.json");
+
+const readLocalContacts = () => {
+  try {
+    if (fs.existsSync(CONTACTS_FILE)) {
+      const data = JSON.parse(fs.readFileSync(CONTACTS_FILE, "utf-8"));
+      if (data && Array.isArray(data.contacts)) {
+        return data.contacts;
+      }
+      if (Array.isArray(data)) {
+        return data;
+      }
+    }
+  } catch (err) {
+    console.error("[ContactService] Failed to read local contacts:", err.message);
+  }
+  return [];
+};
+
+const writeLocalContacts = (contactsArray) => {
+  try {
+    const dir = path.dirname(CONTACTS_FILE);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    const data = { contacts: contactsArray };
+    fs.writeFileSync(CONTACTS_FILE, JSON.stringify(data, null, 2), "utf-8");
+  } catch (err) {
+    console.error("[ContactService] Failed to write local contacts:", err.message);
+  }
+};
 
 // ── Address validation ────────────────────────────────────────────────────────
 
@@ -26,22 +63,32 @@ export const isValidCardanoAddress = (address = "") => {
   }
 };
 
-export const isValidBaseAddress = (address = "") =>
-  /^0x[0-9a-fA-F]{40}$/.test(address.trim());
-
 const isValidAddress = (address) =>
-  isValidCardanoAddress(address) || isValidBaseAddress(address);
+  isValidCardanoAddress(address);
 
 // ── CRUD operations ──────────────────────────────────────────────────────────
 
 /**
  * Get all contacts for a wallet.
- * Falls back gracefully if DB is not connected (returns []).
+ * Falls back to local contacts file if DB is not connected.
  */
 export const getAllContacts = async (walletAddress) => {
-  if (!isDBConnected()) return [];
+  const owner = normalizeAddress(walletAddress || "anonymous");
+  if (!isDBConnected()) {
+    const local = readLocalContacts();
+    return local
+      .filter(c => normalizeAddress(c.walletAddress || "anonymous") === owner)
+      .map(c => ({
+        id: c.id,
+        name: c.name,
+        address: c.address,
+        isFavorite: Boolean(c.isFavorite),
+        avatarColor: c.avatarColor || "bg-pink-500/20 text-pink-400",
+        createdAt: c.createdAt,
+      }));
+  }
   const docs = await Contact.find({
-    walletAddress: normalizeAddress(walletAddress || "anonymous"),
+    walletAddress: owner,
   }).sort({ createdAt: -1 });
   // Return plain objects shaped like the old JSON format
   return docs.map((d) => ({
@@ -56,15 +103,18 @@ export const getAllContacts = async (walletAddress) => {
 
 /**
  * Resolve a contact by name (exact → prefix → partial match).
+ * Fully functional in offline/stateless mode as well.
  */
 export const resolveContactByName = async (name, walletAddress) => {
-  if (!name || !isDBConnected()) return null;
+  if (!name) return null;
   const contacts = await getAllContacts(walletAddress);
   const query = name.trim().toLowerCase();
   return (
     contacts.find((c) => c.name.toLowerCase() === query) ||
     contacts.find((c) => c.name.toLowerCase().startsWith(query)) ||
+    contacts.find((c) => query.startsWith(c.name.toLowerCase())) ||
     contacts.find((c) => c.name.toLowerCase().includes(query)) ||
+    contacts.find((c) => query.includes(c.name.toLowerCase())) ||
     null
   );
 };
@@ -81,23 +131,42 @@ export const addContact = async (name, address, walletAddress, isFavorite = fals
 
   if (!isValidAddress(normalizedAddress)) {
     throw new Error(
-      "Invalid address. Please provide a valid Cardano (addr1.../addr_test1...) or Base (0x...) address."
+      "Invalid address. Please provide a valid Cardano (addr1.../addr_test1...) address."
     );
   }
 
   if (!isDBConnected()) {
-    // Offline fallback: return a temporary contact (won't be persisted)
-    return {
+    const contacts = readLocalContacts();
+    
+    // Check duplicates
+    const duplicate = contacts.find(c => 
+      normalizeAddress(c.walletAddress || "anonymous") === ownerWallet &&
+      (c.name.toLowerCase() === normalizedName.toLowerCase() || normalizeAddress(c.address) === normalizedAddress)
+    );
+
+    if (duplicate) {
+      if (duplicate.name.toLowerCase() === normalizedName.toLowerCase()) {
+        throw new Error(`A contact named "${normalizedName}" already exists.`);
+      }
+      throw new Error(`This address is already saved for "${duplicate.name}".`);
+    }
+
+    const contact = {
       id: `c-${Date.now()}`,
+      walletAddress: ownerWallet,
       name: normalizedName,
       address: normalizedAddress,
       isFavorite,
       avatarColor: "bg-pink-500/20 text-pink-400",
       createdAt: new Date().toISOString(),
     };
+
+    contacts.push(contact);
+    writeLocalContacts(contacts);
+    return contact;
   }
 
-  // Check for duplicates
+  // Check for duplicates in DB
   const existing = await Contact.findOne({
     walletAddress: ownerWallet,
     $or: [
@@ -135,10 +204,18 @@ export const addContact = async (name, address, walletAddress, isFavorite = fals
  * Remove a contact by its ID.
  */
 export const removeContact = async (id, walletAddress) => {
-  if (!isDBConnected()) return false;
+  const owner = normalizeAddress(walletAddress || "anonymous");
+  if (!isDBConnected()) {
+    const contacts = readLocalContacts();
+    const index = contacts.findIndex(c => c.id === id && normalizeAddress(c.walletAddress || "anonymous") === owner);
+    if (index === -1) return false;
+    contacts.splice(index, 1);
+    writeLocalContacts(contacts);
+    return true;
+  }
   const result = await Contact.deleteOne({
     _id: id,
-    walletAddress: normalizeAddress(walletAddress || "anonymous"),
+    walletAddress: owner,
   });
   return result.deletedCount > 0;
 };
@@ -147,10 +224,18 @@ export const removeContact = async (id, walletAddress) => {
  * Toggle the isFavorite flag on a contact.
  */
 export const toggleFavorite = async (id, walletAddress) => {
-  if (!isDBConnected()) return null;
+  const owner = normalizeAddress(walletAddress || "anonymous");
+  if (!isDBConnected()) {
+    const contacts = readLocalContacts();
+    const contact = contacts.find(c => c.id === id && normalizeAddress(c.walletAddress || "anonymous") === owner);
+    if (!contact) return null;
+    contact.isFavorite = !contact.isFavorite;
+    writeLocalContacts(contacts);
+    return contact;
+  }
   const doc = await Contact.findOne({
     _id: id,
-    walletAddress: normalizeAddress(walletAddress || "anonymous"),
+    walletAddress: owner,
   });
   if (!doc) return null;
   doc.isFavorite = !doc.isFavorite;

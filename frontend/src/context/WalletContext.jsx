@@ -3,8 +3,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
 import { BrowserWallet } from "@meshsdk/core";
 import { useNetwork } from "@/context/NetworkContext";
-import { useBlockchain } from "@/context/BlockchainContext";
-import { useAccount, useConnect, useDisconnect, useBalance } from "wagmi";
 
 let isAdalibInitialized = false;
 
@@ -13,10 +11,6 @@ const initAdalib = async (activeNetwork = "preprod") => {
   const adalib = await import("@dcspark/adalib");
   
   // Patch WalletConnectConnector prototype to restructure requested namespaces.
-  // This is required because Yoroi and Eternl wallets reject connection requests that require
-  // custom network change events ('cardano_onNetworkChange', 'cardano_onAccountChange').
-  // By moving these events and non-essential methods into optionalNamespaces, the wallets
-  // can connect successfully while still allowing the dApp to request them if supported.
   if (adalib.WalletConnectConnector && adalib.WalletConnectConnector.prototype) {
     const originalConnect = adalib.WalletConnectConnector.prototype.connect;
     adalib.WalletConnectConnector.prototype.connect = async function () {
@@ -26,36 +20,30 @@ const initAdalib = async (activeNetwork = "preprod") => {
           provider._isPatchedForYoroi = true;
           const originalProviderConnect = provider.connect.bind(provider);
           provider.connect = async function (opts) {
-            console.log("[WalletConnect Patch] Intercepting connect options:", opts);
             if (opts && opts.namespaces && opts.namespaces.cip34) {
               const originalCip34 = opts.namespaces.cip34;
-              
-              // Define the bare minimum required methods that every Cardano wallet supports
               const requiredMethods = ["cardano_signTx", "cardano_getBalance", "cardano_getChangeAddress"];
               const allMethods = originalCip34.methods || [];
               const reqMethods = allMethods.filter(m => requiredMethods.includes(m));
-              
               const newOpts = {
                 ...opts,
                 namespaces: {
                   cip34: {
                     chains: originalCip34.chains,
                     methods: reqMethods,
-                    events: [], // Keep required events empty to prevent rejection by Yoroi/Eternl
+                    events: [],
                     rpcMap: originalCip34.rpcMap
                   }
                 },
                 optionalNamespaces: {
                   cip34: {
                     chains: originalCip34.chains,
-                    methods: allMethods, // Include all methods as optional
+                    methods: allMethods,
                     events: originalCip34.events || ["cardano_onNetworkChange", "cardano_onAccountChange"],
                     rpcMap: originalCip34.rpcMap
                   }
                 }
               };
-              
-              console.log("[WalletConnect Patch] Using patched options:", newOpts);
               return originalProviderConnect(newOpts);
             }
             return originalProviderConnect(opts);
@@ -102,21 +90,14 @@ if (typeof window !== "undefined") {
       icon: "https://cloud.walletconnect.com/favicon.ico",
       apiVersion: "1.0.0",
       enable: async () => {
-        console.log("[WalletConnect] Initializing adalib...");
         const activeNetwork = localStorage.getItem("cardano_network") || "preprod";
         await initAdalib(activeNetwork);
-        
-        console.log("[WalletConnect] Ensuring network is correct...");
         const adalib = await import("@dcspark/adalib");
         const chosenChain = activeNetwork === "mainnet"
           ? adalib.cardanoMainnetWalletConnect()
           : adalib.cardanoPreprodWalletConnect();
         adalib.switchNetwork(chosenChain);
-
-        console.log("[WalletConnect] Connecting via adalib...");
         await adalib.connect();
-        
-        console.log("[WalletConnect] Connected successfully, retrieving API...");
         const api = await adalib.getCardanoAPI();
         return api;
       },
@@ -127,12 +108,10 @@ if (typeof window !== "undefined") {
 const WalletContext = createContext(undefined);
 
 const withTimeout = async (promise, ms, message) => {
-
   let timeoutId;
   const timeout = new Promise((_, reject) => {
     timeoutId = setTimeout(() => reject(new Error(message)), ms);
   });
-
   try {
     return await Promise.race([promise, timeout]);
   } finally {
@@ -142,19 +121,13 @@ const withTimeout = async (promise, ms, message) => {
 
 const getPreferredWalletId = (walletName, savedWalletId = null) => {
   const lowerName = walletName.toLowerCase();
+  if (savedWalletId) return savedWalletId;
 
-  if (savedWalletId) {
-    return savedWalletId;
-  }
-
-  // Direct injection checks for standard Cardano browser wallet namespaces (especially crucial on mobile Web3 browsers)
   if (typeof window !== "undefined" && window.cardano) {
     if (lowerName === "lace" && window.cardano.lace) return "lace";
     if (lowerName === "yoroi" && window.cardano.yoroi) return "yoroi";
     if (lowerName === "eternl" && window.cardano.eternl) return "eternl";
     if (lowerName === "nami" && window.cardano.nami) return "nami";
-    
-    // Exact or partial key match in the window.cardano namespace
     const keys = Object.keys(window.cardano);
     const matchedKey = keys.find(k => k.toLowerCase() === lowerName);
     if (matchedKey) return matchedKey;
@@ -162,10 +135,8 @@ const getPreferredWalletId = (walletName, savedWalletId = null) => {
 
   const availableWallets = BrowserWallet.getInstalledWallets();
   const matchedWallet = availableWallets.find(w =>
-    w.name.toLowerCase() === lowerName ||
-    w.id.toLowerCase() === lowerName
+    w.name.toLowerCase() === lowerName || w.id.toLowerCase() === lowerName
   );
-
   return matchedWallet?.id || null;
 };
 
@@ -189,44 +160,21 @@ const refreshWalletBalance = async (wallet, setAdaBalance) => {
 
 export const WalletProvider = ({ children }) => {
   const { activeNetwork } = useNetwork();
-  const { currentBlockchain, isCardano, isBase } = useBlockchain();
 
-  // Cardano specific states
-  const [isCardanoConnected, setIsCardanoConnected] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectingWallet, setConnectingWallet] = useState(null);
   const [connectedWallet, setConnectedWallet] = useState(null);
   const [connectedWalletId, setConnectedWalletId] = useState(null);
-  const [cardanoAddress, setCardanoAddress] = useState(null);
+  const [walletAddress, setWalletAddress] = useState(null);
   const [adaBalance, setAdaBalance] = useState(null);
   const [meshWallet, setMeshWallet] = useState(null);
   const [walletNetworkId, setWalletNetworkId] = useState(null);
 
-  // Base specific states using Wagmi Hooks
-  const { address: evmAddress, isConnected: isEvmConnected } = useAccount();
-  const { disconnect: disconnectEvm } = useDisconnect();
-  const { connectAsync: connectEvmAsync, connectors: evmConnectors } = useConnect();
-  
-  const { data: evmBalanceData } = useBalance({
-    address: evmAddress,
-    query: {
-      enabled: isBase && !!evmAddress,
-    }
-  });
-
-  const evmBalance = evmBalanceData ? parseFloat(evmBalanceData.formatted) : 0;
-
-  const refreshBalance = useCallback(async (walletOverride = null) => {
-    if (isBase) return evmBalance;
-    const activeWallet = walletOverride || meshWallet;
-    if (!activeWallet) return null;
-    return refreshWalletBalance(activeWallet, setAdaBalance);
-  }, [meshWallet, isBase, evmBalance]);
-
-  // Cardano polling balance
+  // Balance polling
   const pollingRef = useRef(null);
   useEffect(() => {
-    if (meshWallet && isCardano) {
+    if (meshWallet) {
       refreshWalletBalance(meshWallet, setAdaBalance);
       pollingRef.current = setInterval(() => {
         refreshWalletBalance(meshWallet, setAdaBalance);
@@ -237,12 +185,12 @@ export const WalletProvider = ({ children }) => {
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current);
     };
-  }, [meshWallet, isCardano]);
+  }, [meshWallet]);
 
-  // Cardano wallet network ID tracking
+  // Network ID tracking
   useEffect(() => {
     const updateNetworkId = async () => {
-      if (meshWallet && isCardano) {
+      if (meshWallet) {
         try {
           const id = await meshWallet.getNetworkId();
           setWalletNetworkId(id);
@@ -255,96 +203,76 @@ export const WalletProvider = ({ children }) => {
       }
     };
     updateNetworkId();
-  }, [meshWallet, activeNetwork, isCardano]);
+  }, [meshWallet, activeNetwork]);
 
-  // Cardano silent reconnect
+  // Silent reconnect
   useEffect(() => {
     const checkPersistedWallet = async () => {
       const savedWallet = localStorage.getItem("connected_wallet");
       const savedWalletId = localStorage.getItem("connected_wallet_id");
       const savedAddress = localStorage.getItem("connected_wallet_address");
-      if (savedWallet && isCardano) {
+      if (savedWallet) {
         setConnectedWallet(savedWallet);
         setConnectedWalletId(savedWalletId);
         if (savedAddress) {
-          setCardanoAddress(savedAddress);
-          setIsCardanoConnected(true);
+          setWalletAddress(savedAddress);
+          setIsConnected(true);
         }
-
         try {
           const walletId = getPreferredWalletId(savedWallet, savedWalletId);
           if (walletId) {
-             if (savedWallet === "WalletConnect") {
-               const adalib = await import("@dcspark/adalib");
-               const activeNetwork = localStorage.getItem("cardano_network") || "preprod";
-               await initAdalib(activeNetwork);
-               
-               const connector = adalib.getActiveConnector();
-               const provider = await connector.getProvider();
-               if (!provider || !provider.session) {
-                 localStorage.removeItem("connected_wallet");
-                 localStorage.removeItem("connected_wallet_id");
-                 localStorage.removeItem("connected_wallet_address");
-                 setIsCardanoConnected(false);
-                 setConnectedWallet(null);
-                 setConnectedWalletId(null);
-                 setCardanoAddress(null);
-                 return;
-               }
-             }
-
-             const connectionResult = await withTimeout(
-               (async () => {
-                 const walletInstance = await BrowserWallet.enable(walletId);
-                 const changeAddress = await walletInstance.getChangeAddress();
-                 return { walletInstance, changeAddress };
-               })(),
-               15000,
-               `${savedWallet} wallet did not respond.`
-             );
-             const { walletInstance: wallet, changeAddress: address } = connectionResult;
-             
-             setIsCardanoConnected(true);
-             setConnectedWallet(savedWallet);
-             setConnectedWalletId(walletId);
-             setCardanoAddress(address);
-             setMeshWallet(wallet);
-             localStorage.setItem("connected_wallet_address", address);
-             refreshWalletBalance(wallet, setAdaBalance);
+            if (savedWallet === "WalletConnect") {
+              const adalib = await import("@dcspark/adalib");
+              const activeNet = localStorage.getItem("cardano_network") || "preprod";
+              await initAdalib(activeNet);
+              const connector = adalib.getActiveConnector();
+              const provider = await connector.getProvider();
+              if (!provider || !provider.session) {
+                localStorage.removeItem("connected_wallet");
+                localStorage.removeItem("connected_wallet_id");
+                localStorage.removeItem("connected_wallet_address");
+                setIsConnected(false);
+                setConnectedWallet(null);
+                setConnectedWalletId(null);
+                setWalletAddress(null);
+                return;
+              }
+            }
+            const connectionResult = await withTimeout(
+              (async () => {
+                const walletInstance = await BrowserWallet.enable(walletId);
+                const changeAddress = await walletInstance.getChangeAddress();
+                return { walletInstance, changeAddress };
+              })(),
+              15000,
+              `${savedWallet} wallet did not respond.`
+            );
+            const { walletInstance: wallet, changeAddress: address } = connectionResult;
+            setIsConnected(true);
+            setConnectedWallet(savedWallet);
+            setConnectedWalletId(walletId);
+            setWalletAddress(address);
+            setMeshWallet(wallet);
+            localStorage.setItem("connected_wallet_address", address);
+            refreshWalletBalance(wallet, setAdaBalance);
           } else {
-             setIsCardanoConnected(false);
+            setIsConnected(false);
           }
         } catch (err) {
-           console.log("Silent reconnection failed", err);
-           setMeshWallet(null);
+          console.log("Silent reconnection failed", err);
+          setMeshWallet(null);
         }
       }
     };
-    
     checkPersistedWallet();
-  }, [isCardano]);
+  }, []);
 
   const connectWallet = async (walletName) => {
     setIsConnecting(true);
     setConnectingWallet(walletName);
-    
     try {
-      if (isBase) {
-        const connector = evmConnectors.find(
-          c => c.name.toLowerCase().includes(walletName.toLowerCase()) || 
-               c.id.toLowerCase().includes(walletName.toLowerCase())
-        ) || evmConnectors[0];
-
-        if (!connector) throw new Error("No EVM connectors found.");
-        await connectEvmAsync({ connector });
-        return true;
-      }
-
-      // Cardano Wallet Connection Flow
       const walletId = getPreferredWalletId(walletName);
-      if (!walletId) {
-        throw new Error(`NOT_INSTALLED`);
-      }
+      if (!walletId) throw new Error("NOT_INSTALLED");
 
       const connectionResult = await withTimeout(
         (async () => {
@@ -363,19 +291,17 @@ export const WalletProvider = ({ children }) => {
         15000,
         `${walletName} did not respond.`
       );
-      
+
       const { walletInstance: wallet, changeAddress: address, balance } = connectionResult;
-      
-      setIsCardanoConnected(true);
+      setIsConnected(true);
       setConnectedWallet(walletName);
       setConnectedWalletId(walletId);
-      setCardanoAddress(address);
+      setWalletAddress(address);
       setMeshWallet(wallet);
       setAdaBalance(balance);
       localStorage.setItem("connected_wallet", walletName);
       localStorage.setItem("connected_wallet_id", walletId);
       localStorage.setItem("connected_wallet_address", address);
-      
       return true;
     } catch (err) {
       console.error(`Failed to connect to ${walletName}:`, err);
@@ -387,24 +313,15 @@ export const WalletProvider = ({ children }) => {
   };
 
   const disconnectWallet = () => {
-    if (isBase) {
-      disconnectEvm();
-      return;
-    }
-
     if (connectedWallet === "WalletConnect") {
       import("@dcspark/adalib").then((adalib) => {
-        try {
-          adalib.disconnect();
-        } catch (e) {
-          console.warn("WalletConnect disconnect failed:", e);
-        }
+        try { adalib.disconnect(); } catch (e) { console.warn("WalletConnect disconnect failed:", e); }
       });
     }
-    setIsCardanoConnected(false);
+    setIsConnected(false);
     setConnectedWallet(null);
     setConnectedWalletId(null);
-    setCardanoAddress(null);
+    setWalletAddress(null);
     setAdaBalance(null);
     setMeshWallet(null);
     localStorage.removeItem("connected_wallet");
@@ -412,13 +329,14 @@ export const WalletProvider = ({ children }) => {
     localStorage.removeItem("connected_wallet_address");
   };
 
-  // Resolve properties dynamically depending on the active blockchain
-  const isConnected = isBase ? isEvmConnected : isCardanoConnected;
-  const walletAddress = isBase ? evmAddress : cardanoAddress;
-  const balance = isBase ? evmBalance : adaBalance;
+  const refreshBalance = useCallback(async (walletOverride = null) => {
+    const activeWallet = walletOverride || meshWallet;
+    if (!activeWallet) return null;
+    return refreshWalletBalance(activeWallet, setAdaBalance);
+  }, [meshWallet]);
 
   const expectedNetworkId = activeNetwork === "mainnet" ? 1 : 0;
-  const isWalletNetworkCorrect = isBase ? true : (!isConnected || walletNetworkId === null || walletNetworkId === expectedNetworkId);
+  const isWalletNetworkCorrect = !isConnected || walletNetworkId === null || walletNetworkId === expectedNetworkId;
 
   return (
     <WalletContext.Provider
@@ -426,10 +344,12 @@ export const WalletProvider = ({ children }) => {
         isConnected,
         isConnecting,
         connectingWallet,
-        connectedWallet: isBase ? (isEvmConnected ? "MetaMask" : null) : connectedWallet,
+        connectedWallet,
         connectedWalletId,
         walletAddress,
-        adaBalance: balance, // keep naming consistent for dashboard
+        tokenBalances: [],
+        fetchTokenBalances: async () => [],
+        adaBalance,
         meshWallet,
         walletNetworkId,
         isWalletNetworkCorrect,
@@ -443,7 +363,6 @@ export const WalletProvider = ({ children }) => {
     </WalletContext.Provider>
   );
 };
-
 
 export const useWallet = () => {
   const context = useContext(WalletContext);

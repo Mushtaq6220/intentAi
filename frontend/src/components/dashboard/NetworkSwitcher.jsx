@@ -1,95 +1,136 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useNetwork } from "@/context/NetworkContext";
 import { useWallet } from "@/context/WalletContext";
 import {
   ChevronDown, Globe, AlertTriangle, ShieldAlert,
-  Coins, HelpCircle, X, Check, ArrowRight, Info
+  Coins, X, Check, ArrowRight, Info
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export const NetworkSwitcher = () => {
   const { activeNetwork, setNetwork, colors, networkName } = useNetwork();
-  const { isConnected, meshWallet } = useWallet();
   const [isOpen, setIsOpen] = useState(false);
   const [showWarningModal, setShowWarningModal] = useState(false);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, right: 0 });
+  const [mounted, setMounted] = useState(false);
+  const buttonRef = useRef(null);
   const dropdownRef = useRef(null);
 
-  // Close dropdown on click outside
-  useEffect(() => {
-    const handleOutsideClick = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleOutsideClick);
-    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  useEffect(() => { setMounted(true); }, []);
+
+  const openDropdown = useCallback(() => {
+    if (buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setDropdownPos({ top: rect.bottom + 8, right: window.innerWidth - rect.right });
+    }
+    setIsOpen(true);
   }, []);
 
-  const handleSelectNetwork = (network) => {
-    setIsOpen(false);
-    if (network === activeNetwork) return;
+  const closeDropdown = useCallback(() => setIsOpen(false), []);
 
+  const toggleDropdown = useCallback(() => {
+    isOpen ? closeDropdown() : openDropdown();
+  }, [isOpen, openDropdown, closeDropdown]);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!isOpen) return;
+    const handle = (e) => {
+      if (
+        dropdownRef.current && !dropdownRef.current.contains(e.target) &&
+        buttonRef.current && !buttonRef.current.contains(e.target)
+      ) closeDropdown();
+    };
+    document.addEventListener("mousedown", handle);
+    return () => document.removeEventListener("mousedown", handle);
+  }, [isOpen, closeDropdown]);
+
+  // Reposition on scroll/resize
+  useEffect(() => {
+    if (!isOpen) return;
+    const reposition = () => {
+      if (buttonRef.current) {
+        const rect = buttonRef.current.getBoundingClientRect();
+        setDropdownPos({ top: rect.bottom + 8, right: window.innerWidth - rect.right });
+      }
+    };
+    window.addEventListener("scroll", reposition, true);
+    window.addEventListener("resize", reposition);
+    return () => {
+      window.removeEventListener("scroll", reposition, true);
+      window.removeEventListener("resize", reposition);
+    };
+  }, [isOpen]);
+
+  const handleSelectNetwork = (network) => {
+    closeDropdown();
+    if (network === activeNetwork) return;
     if (network === "mainnet") {
-      // Trigger warning modal before entering mainnet
       setShowWarningModal(true);
     } else {
-      // Switch back to preprod immediately
       setNetwork("preprod");
     }
   };
 
-  const confirmSwitchToMainnet = async () => {
+  const confirmSwitchToMainnet = () => {
     setNetwork("mainnet");
     setShowWarningModal(false);
   };
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className="relative">
       {/* ── Network Switcher Trigger Button ──────────────────────────────── */}
       <button
-        onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center gap-1.5 sm:gap-2.5 px-2.5 sm:px-4.5 py-2.5 rounded-xl bg-white/5 border border-white/10 hover:border-${colors.accent}-500/30 text-gray-300 hover:text-white transition-all duration-200 active:scale-95 cursor-pointer shadow-sm select-none`}
+        ref={buttonRef}
+        onClick={toggleDropdown}
+        className={`flex items-center gap-1.5 sm:gap-2.5 px-2.5 sm:px-4 py-2.5 rounded-xl bg-white/5 border transition-all duration-200 active:scale-95 cursor-pointer shadow-sm select-none ${
+          isOpen
+            ? "border-white/20 text-white"
+            : "border-white/10 hover:border-white/20 text-gray-300 hover:text-white"
+        }`}
       >
-        <span className={`w-2 h-2 rounded-full ${colors.pulseBg} animate-pulse shadow-[0_0_8px_rgba(34,211,238,0.5)]`} />
+        <span className={`w-2 h-2 rounded-full ${colors.pulseBg} animate-pulse`} />
         <span className="text-xs font-bold font-mono tracking-wide hidden sm:inline">{networkName}</span>
         <span className="text-xs font-bold font-mono tracking-wide sm:hidden">
           {activeNetwork === "mainnet" ? "Main" : "Test"}
         </span>
-        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-250 ${isOpen ? "rotate-180" : ""}`} />
+        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
       </button>
 
-      {/* ── Switcher Dropdown ───────────────────────────────────────────── */}
-      <AnimatePresence>
-        {isOpen && (
+      {/* ── Switcher Dropdown (Portal) ───────────────────────────────────── */}
+      {mounted && isOpen && createPortal(
+        <AnimatePresence>
           <motion.div
-            initial={{ opacity: 0, y: 8, scale: 0.96 }}
+            ref={dropdownRef}
+            key="net-dropdown"
+            initial={{ opacity: 0, y: -6, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 8, scale: 0.96 }}
-            transition={{ type: "spring", damping: 20, stiffness: 300 }}
-            className="absolute right-0 mt-2.5 w-60 rounded-2xl solid-dropdown p-2.5 shadow-2xl z-[100] border border-white/5 overflow-hidden"
+            exit={{ opacity: 0, y: -6, scale: 0.97 }}
+            transition={{ type: "spring", damping: 22, stiffness: 320 }}
+            style={{ top: dropdownPos.top, right: dropdownPos.right, zIndex: 99999 }}
+            className="fixed w-56 rounded-2xl p-2.5 shadow-2xl border border-white/10 bg-[#0b0b16]/95 backdrop-blur-2xl"
           >
-            {/* Subtle background glow */}
-            <div className={`absolute top-0 right-0 w-20 h-20 bg-${colors.accent}-500/10 rounded-full blur-2xl pointer-events-none`} />
+            <span className="text-[9px] text-gray-500 uppercase tracking-widest font-extrabold px-3 py-1.5 block">Select Network</span>
 
-            <div className="relative z-10 space-y-1">
-              <span className="text-[9px] text-gray-500 uppercase tracking-widest font-extrabold px-3 py-1.5 block">Select Network</span>
-
-              {/* Preprod option */}
+            <div className="space-y-1 mt-1">
+              {/* Testnet option */}
               <button
                 onClick={() => handleSelectNetwork("preprod")}
                 className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-left transition-all cursor-pointer ${
                   activeNetwork === "preprod"
-                    ? "bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 font-bold"
+                    ? `bg-${colors.accent}-500/10 text-${colors.accent}-300 border border-${colors.accent}-500/20 font-bold`
                     : "hover:bg-white/5 text-gray-400 hover:text-white border border-transparent font-medium"
                 }`}
               >
                 <div className="flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                  <span className={`w-1.5 h-1.5 rounded-full ${colors.pulseBg}`} />
                   <span className="text-xs font-mono">Preprod Testnet</span>
                 </div>
-                {activeNetwork === "preprod" && <Check className="w-3.5 h-3.5 text-cyan-400" />}
+                {activeNetwork === "preprod" &&
+                  <Check className={`w-3.5 h-3.5 ${colors.primaryAccent}`} />}
               </button>
 
               {/* Mainnet option */}
@@ -109,8 +150,9 @@ export const NetworkSwitcher = () => {
               </button>
             </div>
           </motion.div>
-        )}
-      </AnimatePresence>
+        </AnimatePresence>,
+        document.body
+      )}
 
       {/* ── Premium Warning Confirmation Modal (Mainnet Warning) ────────── */}
       <AnimatePresence>

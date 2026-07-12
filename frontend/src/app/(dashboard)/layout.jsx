@@ -5,18 +5,16 @@ import { usePathname, useRouter } from "next/navigation";
 import { useWallet } from "@/context/WalletContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useNetwork } from "@/context/NetworkContext";
-import { useBlockchain } from "@/context/BlockchainContext";
 import { useDashboard } from "@/context/DashboardContext";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { NotificationCenter } from "@/components/dashboard/NotificationCenter";
 import { WalletModal } from "@/components/wallet/WalletModal";
 import { NetworkSwitcher } from "@/components/dashboard/NetworkSwitcher";
-import { BlockchainSwitcher } from "@/components/dashboard/BlockchainSwitcher";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Menu, Sun, Moon, Wallet, Loader2,
+  Menu, Sun, Moon, Wallet,
   X, ChevronDown, Copy, Check, LogOut, ExternalLink,
-  CheckCircle2, AlertTriangle, Terminal, Sparkles
+  CheckCircle2, AlertTriangle, Terminal
 } from "lucide-react";
 
 export default function DashboardLayout({ children }) {
@@ -24,13 +22,11 @@ export default function DashboardLayout({ children }) {
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
   const { isConnected, connectedWallet, walletAddress, disconnectWallet, adaBalance } = useWallet();
-  const { colors, networkName, explorerUrl, isMainnet } = useNetwork();
+  const { colors, networkName, explorerUrl } = useNetwork();
   const {
-    currentTx, handleTxSuccess, handleTxFailure,
     notifications, handleMarkAllAsRead, handleClearAll, handleRemoveNotification,
-    messages, toasts, dismissToast, notify,
+    toasts, dismissToast
   } = useDashboard();
-  const { currentBlockchain, isSwitching } = useBlockchain();
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);    // mobile drawer
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false); // desktop collapse
@@ -49,7 +45,6 @@ export default function DashboardLayout({ children }) {
   const handleDisconnect = () => {
     disconnectWallet();
     setIsWalletDropdownOpen(false);
-    notify({ title: "Wallet Disconnected", message: `${connectedWallet} session closed.`, type: "info" });
   };
 
   return (
@@ -60,30 +55,6 @@ export default function DashboardLayout({ children }) {
       {/* Dynamic Animated Ambient Lighting Orbs */}
       <div className="absolute top-10 right-10 w-[550px] h-[550px] rounded-full bg-cyan-500/5 blur-[150px] pointer-events-none transition-all duration-700" />
       <div className="absolute bottom-10 left-10 w-[550px] h-[550px] rounded-full bg-purple-500/5 blur-[150px] pointer-events-none transition-all duration-700" />
-
-      {/* Ecosystem Transition Overlay */}
-      <AnimatePresence>
-        {isSwitching && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[999] flex flex-col items-center justify-center bg-[#07070d]/90 backdrop-blur-2xl text-white"
-          >
-            <div className="flex flex-col items-center gap-6 max-w-sm text-center px-4">
-              <Loader2 className={`w-12 h-12 text-${colors.accent}-400 animate-spin`} />
-              <div>
-                <h2 className="text-lg font-black uppercase tracking-widest">
-                  Switching Ecosystem
-                </h2>
-                <p className="text-xs text-gray-500 font-semibold tracking-wider uppercase mt-2">
-                  Reloading secure network vaults for {currentBlockchain === "cardano" ? "Base" : "Cardano"}...
-                </p>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* ── Floating Sidebar (Desktop) ─────────────────────────────────── */}
       <Sidebar
@@ -128,7 +99,7 @@ export default function DashboardLayout({ children }) {
         <div className={`absolute top-0 right-0 w-44 h-44 rounded-full blur-[80px] pointer-events-none ${colors.bgGlow}`} />
 
         {/* ── Cockpit Top Header ───────────────────────────────────────── */}
-        <header className="h-16 shrink-0 flex items-center justify-between px-3 sm:px-6 border-b border-white/5 bg-transparent z-20 select-none overflow-hidden">
+        <header className="h-16 shrink-0 flex items-center justify-between px-3 sm:px-6 border-b border-white/5 bg-transparent z-[60] select-none relative">
           {/* Left Area — mobile drawer trigger + network state badge */}
           <div className="flex items-center gap-2 sm:gap-3 min-w-0 shrink-0">
             <button
@@ -159,7 +130,7 @@ export default function DashboardLayout({ children }) {
             )}
           </div>
 
-          {/* Right Area — Platform controls */}
+          {/* Right Area — Platform controls Control Center */}
           <div className="flex items-center gap-1.5 sm:gap-2.5 md:gap-3.5 shrink-0">
 
             {/* Theme Toggle */}
@@ -180,9 +151,6 @@ export default function DashboardLayout({ children }) {
               onClearAll={handleClearAll}
               onRemoveNotification={handleRemoveNotification}
             />
-
-            {/* Blockchain switch protocol */}
-            <BlockchainSwitcher />
 
             {/* Network switch protocol */}
             <NetworkSwitcher />

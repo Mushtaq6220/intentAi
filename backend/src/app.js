@@ -7,6 +7,7 @@ import contactRoutes from "./routes/contactRoutes.js";
 import transactionRoutes from "./routes/transactionRoutes.js";
 import sessionRoutes from "./routes/sessionRoutes.js";
 import txHistoryRoutes from "./routes/txHistoryRoutes.js";
+import stakingRoutes from "./routes/stakingRoutes.js";
 
 const app = express();
 
@@ -32,6 +33,7 @@ app.use("/api/contacts", contactRoutes);
 app.use("/api/transaction", transactionRoutes);
 app.use("/api/sessions", sessionRoutes);
 app.use("/api/txhistory", txHistoryRoutes);
+app.use("/api/staking", stakingRoutes);
 
 // Root endpoint for browser testing
 app.get("/", (req, res) => {

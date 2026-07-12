@@ -4,9 +4,9 @@ import React, { useState, useRef, useEffect } from "react";
 import { useWallet } from "@/context/WalletContext";
 import { useDashboard } from "@/context/DashboardContext";
 import {
-  Send, Bot, User, Sparkles, AlertCircle, ArrowUpRight, Cpu,
-  CheckCircle2, ArrowLeftRight, Zap, RefreshCw, X, ChevronDown, Copy, Check,
-  Clock, Shield, BarChart2, Coins
+  Send, User, Sparkles, AlertCircle, ArrowUpRight, Cpu,
+  CheckCircle2, ArrowLeftRight, Zap, RefreshCw, X, Copy, Check,
+  Clock, Shield, Mic, MicOff
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Transaction } from "@meshsdk/core";
@@ -221,7 +221,7 @@ const TxApprovalCard = ({ msg, cardState, onExecute, onReject, onEditIntent }) =
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-gray-500 uppercase font-bold tracking-widest text-[8px]">Cardano Ledger Network Fee</span>
-                  <span className="font-mono text-gray-200 font-bold">{txPlan.estimatedFeeAda || 0.32} ADA</span>
+                  <span className="font-mono text-gray-200 font-bold">{`${txPlan.estimatedFeeAda || 0.32} ADA`}</span>
                 </div>
                 <div className="flex justify-between items-center" title="Includes refundable Ada deposits required for smart contract executions on-chain.">
                   <span className="text-gray-500 uppercase font-bold tracking-widest text-[8px] cursor-help border-b border-dashed border-gray-500 pb-[1px]">Refundable DEX Contract Deposit (?)</span>
@@ -238,7 +238,7 @@ const TxApprovalCard = ({ msg, cardState, onExecute, onReject, onEditIntent }) =
                 )}
                 <div className="flex justify-between items-center">
                   <span className="text-gray-500 uppercase font-bold tracking-widest text-[8px]">Cardano Network Ledger Fee</span>
-                  <span className="font-mono text-gray-200 font-bold">{txPlan.estimatedFeeAda || 0.19} ADA</span>
+                  <span className="font-mono text-gray-200 font-bold">{`${txPlan.estimatedFeeAda || 0.19} ADA`}</span>
                 </div>
               </>
             )}
@@ -387,9 +387,175 @@ export const ChatSection = ({
 }) => {
   const { isConnected, connectedWallet, walletAddress, meshWallet, refreshBalance, isWalletNetworkCorrect } = useWallet();
   const { handleTxSuccess, handleTxFailure, handleAddAiMessage, transactionStates, updateTxState } = useDashboard();
-  const { colors, networkName, activeNetwork, explorerUrl } = useNetwork();
+  const { colors, networkName, activeNetwork, explorerUrl, isMainnet } = useNetwork();
   const [inputValue, setInputValue] = useState("");
   const messagesEndRef = useRef(null);
+
+  // Speech-to-Text States and Refs
+  const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const streamRef = useRef(null);
+
+  // Clean up recording stream on component unmount
+  useEffect(() => {
+    return () => {
+      if (streamRef.current) {
+        try {
+          streamRef.current.getTracks().forEach(track => track.stop());
+        } catch (e) {
+          console.error("Failed to clean up audio track streams on unmount:", e);
+        }
+      }
+    };
+  }, []);
+
+  const toggleRecording = async () => {
+    if (isTranscribing) return;
+
+    if (isRecording) {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+        mediaRecorderRef.current.stop();
+      }
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+      setIsRecording(false);
+    } else {
+      audioChunksRef.current = [];
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        streamRef.current = stream;
+
+        let options = {};
+        if (MediaRecorder.isTypeSupported("audio/webm")) {
+          options = { mimeType: "audio/webm" };
+        } else if (MediaRecorder.isTypeSupported("audio/ogg")) {
+          options = { mimeType: "audio/ogg" };
+        }
+
+        const mediaRecorder = new MediaRecorder(stream, options);
+        mediaRecorderRef.current = mediaRecorder;
+
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data && event.data.size > 0) {
+            audioChunksRef.current.push(event.data);
+          }
+        };
+
+        mediaRecorder.onstop = async () => {
+          const audioBlob = new Blob(audioChunksRef.current, { type: options.mimeType || "audio/webm" });
+          await handleUploadAudio(audioBlob);
+        };
+
+        mediaRecorder.start(250);
+        setIsRecording(true);
+
+        // ── Silence Detection (Auto-Stop on Speech Finish) ──
+        try {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (AudioContextClass) {
+            const audioContext = new AudioContextClass();
+            const source = audioContext.createMediaStreamSource(stream);
+            const analyser = audioContext.createAnalyser();
+            analyser.fftSize = 512;
+            source.connect(analyser);
+
+            const bufferLength = analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+            
+            let lastSpeechTime = Date.now();
+            const silenceThreshold = 1.5;
+            const silenceDuration = 1500;
+            const maxDuration = 15000;
+            const startTime = Date.now();
+
+            const checkSilence = () => {
+              if (!mediaRecorderRef.current || mediaRecorderRef.current.state === "inactive") {
+                try {
+                  audioContext.close();
+                } catch (e) {}
+                return;
+              }
+
+              analyser.getByteTimeDomainData(dataArray);
+
+              let sum = 0;
+              for (let i = 0; i < bufferLength; i++) {
+                const value = (dataArray[i] - 128) / 128;
+                sum += value * value;
+              }
+              const rms = Math.sqrt(sum / bufferLength) * 100;
+              const now = Date.now();
+
+              if (rms > silenceThreshold) {
+                lastSpeechTime = now;
+              }
+
+              if (now - lastSpeechTime > silenceDuration || now - startTime > maxDuration) {
+                console.log(`[STT Auto-Stop] Triggered: silence=${now - lastSpeechTime}ms, total=${now - startTime}ms`);
+                
+                if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+                  mediaRecorderRef.current.stop();
+                }
+                if (streamRef.current) {
+                  streamRef.current.getTracks().forEach(track => track.stop());
+                }
+                setIsRecording(false);
+
+                try {
+                  audioContext.close();
+                } catch (e) {}
+                return;
+              }
+
+              requestAnimationFrame(checkSilence);
+            };
+
+            requestAnimationFrame(checkSilence);
+          }
+        } catch (audioErr) {
+          console.warn("Failed to initialize AudioContext silence analyzer:", audioErr);
+        }
+      } catch (err) {
+        console.error("Failed to access microphone:", err);
+        alert("Microphone access is required to use speech-to-text. Please enable mic permissions in your browser.");
+      }
+    }
+  };
+
+  const handleUploadAudio = async (blob) => {
+    setIsTranscribing(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", blob, "voice_input.webm");
+
+      const response = await fetch(`${API_BASE_URL}/api/intent/stt`, {
+        method: "POST",
+        headers: {
+          "x-blockchain": "cardano"
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error(`STT translation failed with status ${response.status}`);
+      }
+
+      const data = await response.json();
+      if (data.success && data.transcript) {
+        setInputValue(data.transcript);
+      } else {
+        console.warn("STT parsed successfully but returned no transcript.");
+      }
+    } catch (error) {
+      console.error("STT network/parse error:", error);
+      alert("Failed to transcribe speech: " + error.message);
+    } finally {
+      setIsTranscribing(false);
+    }
+  };
 
   const suggestions = [
     { text: "Send 10 ADA to Brother", label: "Direct Transfer", desc: "Compile Lovelace transfer" },
@@ -693,7 +859,7 @@ export const ChatSection = ({
             </div>
             
             <div className="space-y-2.5">
-              <h3 className={`text-xl font-black text-white tracking-widest uppercase text-glow-cyan`}>
+              <h3 className="text-xl font-black text-white tracking-widest uppercase text-glow-cyan">
                 IntentAi Financial Terminal
               </h3>
               <p className="text-xs text-gray-400 leading-relaxed font-medium">
@@ -726,7 +892,7 @@ export const ChatSection = ({
           <div className="space-y-6 max-w-4xl mx-auto">
             {messages.map((msg) => {
               const isAi = msg.sender === "ai";
-              const hasDraftedTx = msg.intentData?.intent?.action;
+              const hasDraftedTx = msg.intentData?.intent?.action && msg.intentData?.intent?.action !== "unknown";
               const txId = msg.txId || msg.id;
               const cardState = transactionStates[txId] || { status: "awaiting_approval" };
 
@@ -815,19 +981,45 @@ export const ChatSection = ({
           <form onSubmit={handleSubmit} className="relative">
             <input
               type="text"
-              disabled={isProcessing}
+              disabled={isProcessing || isRecording || isTranscribing}
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               placeholder={
-                isConnected
+                isRecording
+                  ? "Recording... click mic again to stop."
+                  : isTranscribing
+                  ? "Processing voice input..."
+                  : isConnected
                   ? "Describe transfer, swap or delegation protocol (e.g. 'Stake ADA to CSP')..."
                   : "Please connect your preprod wallet in the top right to enable AI transacting..."
               }
-              className="w-full py-4.5 pl-5 pr-14 rounded-2xl bg-[var(--input-bg)] border border-[var(--input-border)] focus:border-[var(--neon-cyan)]/40 outline-none text-sm text-[var(--foreground)] placeholder-[var(--text-faint)] disabled:opacity-40 disabled:cursor-not-allowed shadow-2xl transition-all glass-panel"
+              className="w-full py-4.5 pl-5 pr-[104px] rounded-2xl bg-[var(--input-bg)] border border-[var(--input-border)] focus:border-[var(--neon-cyan)]/40 outline-none text-sm text-[var(--foreground)] placeholder-[var(--text-faint)] disabled:opacity-40 disabled:cursor-not-allowed shadow-2xl transition-all glass-panel"
             />
+            {/* Mic button same layout style as ChatGPT/Gemini */}
+            <button
+              type="button"
+              onClick={toggleRecording}
+              disabled={isProcessing || isTranscribing}
+              className={`absolute right-14 top-2 p-3.5 rounded-xl transition-all shadow-lg cursor-pointer flex items-center justify-center border border-white/5 ${
+                isRecording
+                  ? "bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border-rose-500/30 animate-pulse"
+                  : isTranscribing
+                  ? "bg-amber-500/20 text-amber-400 border-amber-500/30"
+                  : "bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white"
+              }`}
+              title={isRecording ? "Stop recording" : isTranscribing ? "Transcribing..." : "Record voice input"}
+            >
+              {isTranscribing ? (
+                <RefreshCw className="w-4 h-4 animate-spin" />
+              ) : isRecording ? (
+                <MicOff className="w-4 h-4" />
+              ) : (
+                <Mic className="w-4 h-4" />
+              )}
+            </button>
             <button
               type="submit"
-              disabled={!isConnected || isProcessing || !inputValue.trim()}
+              disabled={!isConnected || isProcessing || isRecording || isTranscribing || !inputValue.trim()}
               className={`absolute right-2 top-2 p-3.5 rounded-xl bg-gradient-to-r ${colors.brandGradient} ${colors.brandGradientHover} text-white transition-all disabled:opacity-20 disabled:cursor-not-allowed shadow-lg ${colors.accentGlow} cursor-pointer`}
             >
               <Send className="w-4 h-4" />
