@@ -1,0 +1,16 @@
+{
+  "name": "intentai-smart-contracts",
+  "version": "0.0.1",
+  "description": "IntentAi on-chain Aiken validators for Cardano",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Mushtaq6220/intentAi"
+  },
+  "dependencies": {
+    "aiken-lang/stdlib": "v2.1.0"
+  },
+  "aiken": {
+    "version": "v1.1.9"
+  }
+}
